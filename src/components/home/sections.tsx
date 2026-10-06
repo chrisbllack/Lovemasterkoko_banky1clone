@@ -1,11 +1,12 @@
 "use client";
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Shield, Wifi, Coffee, Utensils, GlassWater, CalendarCheck } from "lucide-react";
 import { PhoneSolidIcon } from "@/components/icons/PhoneSolidIcon";
 import { RoomImageSlider } from "@/components/common/RoomImageSlider";
 import { ROOMS, HOTEL, naira } from "@/lib/hotel";
+import { useRoomPreloader, preloadAllRoomsOnIdle } from "@/lib/image-preloader";
 
 const FACILITIES = [
   { icon: Utensils, title: "Restaurant & Dining", desc: "Authentic Nigerian delicacies and international breakfast served daily by master chefs." },
@@ -70,6 +71,15 @@ export const AboutSection = memo(function AboutSection() {
 /*  Rooms                                                              */
 /* ------------------------------------------------------------------ */
 export const RoomsSection = memo(function RoomsSection() {
+  const { getPreloadHandlers } = useRoomPreloader();
+
+  useEffect(() => {
+    const cancelIdle = preloadAllRoomsOnIdle(ROOMS, 800);
+    return () => {
+      cancelIdle?.();
+    };
+  }, []);
+
   return (
     <section className="py-20 sm:py-28 bg-white dark:bg-[#202023]" style={{ contentVisibility: "auto", containIntrinsicSize: "0 1200px" }}>
       <div className="container-x">
@@ -83,7 +93,12 @@ export const RoomsSection = memo(function RoomsSection() {
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {ROOMS.slice(0, 8).map((room) => (
-            <Link key={room.slug} href={`/rooms/${room.slug}`} className="group block border border-[#ece6dd] dark:border-[#3a3a42] bg-white dark:bg-[#28282d] overflow-hidden rounded-2xl hover:shadow-lg transition-all duration-300 hover:border-[var(--accent)]">
+            <Link
+              key={room.slug}
+              href={`/rooms/${room.slug}`}
+              {...getPreloadHandlers(room.slug)}
+              className="group block border border-[#ece6dd] dark:border-[#3a3a42] bg-white dark:bg-[#28282d] overflow-hidden rounded-2xl hover:shadow-lg transition-all duration-300 hover:border-[var(--accent)]"
+            >
               <RoomImageSlider
                 images={room.images && room.images.length > 0 ? room.images : [room.image]}
                 alt={room.name}
@@ -169,8 +184,8 @@ export const ExperiencesSection = memo(function ExperiencesSection() {
         </div>
         <div id="experiences-cards-grid" className="grid gap-6 sm:gap-8 lg:grid-cols-3 w-full lg:max-w-[80%] mx-auto">
           {[
-            { img: "/images/dining.jpg", title: "A Feast Steeped in Tradition", tag: "Culinary Art", copy: "Nigerian classics and continental plates, served breakfast through dinner.", href: "/dining", id: "dining-box" },
-            { img: "/images/lounge.jpg", title: "Open-Air Bar & Lounge", tag: "Cocktails & Spirits", copy: "Handcrafted cocktails, single malts, and relaxed evenings under the stars.", href: "/dining", id: "lounge-box" },
+            { img: "/images/dining.jpg", title: "A Feast Steeped in Tradition", tag: "The Restaurant", copy: "Nigerian classics and continental plates, served breakfast through dinner.", href: "/restaurant", id: "dining-box" },
+            { img: "/images/OpenBar Garden.jpg", title: "Open-Air Bar & Lounge", tag: "The Bar", copy: "Handcrafted cocktails, single malts, and relaxed evenings under the stars.", href: "/bar", id: "lounge-box" },
             { img: "/images/BankyHall.jpg", title: "Banky Hall", tag: "Banqueting & Events", copy: "Lustrous hall with seating for up to 300 guests for weddings and conferences.", href: "/events", id: "events-box" },
           ].map((c, i) => (
             <Link

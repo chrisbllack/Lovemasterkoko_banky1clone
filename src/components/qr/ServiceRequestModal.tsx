@@ -17,6 +17,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { submitServiceRequest } from "@/lib/qr-menu/store";
 import { ServiceRequestType } from "@/lib/qr-menu/types";
+import { usePaymentSettings } from "@/lib/settings/usePaymentSettings";
 
 interface ServiceRequestModalProps {
   isOpen: boolean;
@@ -45,6 +46,7 @@ export function ServiceRequestModal({
   roomOrTable,
   orderType,
 }: ServiceRequestModalProps) {
+  const { paystackEnabled } = usePaymentSettings();
   const [selectedType, setSelectedType] = useState<ServiceRequestType>("waiter");
   const [paymentMethod, setPaymentMethod] = useState<string>("POS Card Machine");
   const [notes, setNotes] = useState("");
@@ -152,12 +154,20 @@ export function ServiceRequestModal({
                     How would you like to settle your bill?
                   </label>
                   <div className="grid grid-cols-2 gap-1.5 text-xs">
-                    {[
-                      "POS Card Machine",
-                      "Cash at Table / Room",
-                      "Paystack Online",
-                      "Post to Room Folio",
-                    ].map((pm) => (
+                    {(paystackEnabled
+                      ? [
+                          "POS Card Machine",
+                          "Cash at Table / Room",
+                          "Paystack Online",
+                          "Post to Room Folio",
+                        ]
+                      : [
+                          "POS Card Machine",
+                          "Cash at Table / Room",
+                          "Direct Bank Transfer",
+                          "Post to Room Folio",
+                        ]
+                    ).map((pm) => (
                       <button
                         key={pm}
                         type="button"

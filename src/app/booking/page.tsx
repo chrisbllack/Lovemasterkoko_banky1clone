@@ -1,6 +1,7 @@
 "use client";
 import { useState, useCallback, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   Loader2,
   Lock,
@@ -12,9 +13,18 @@ import {
   ArrowLeft,
   CreditCard,
   Search,
+  BedDouble,
+  User,
+  Check,
+  FileDown,
+  Building2,
+  Copy,
+  Info,
 } from "lucide-react";
 import { naira } from "@/lib/hotel";
 import type { AvailabilityResult, BookingQuote, BookingErrorCode } from "@/lib/booking/types";
+import { BookingCalendarDatePicker } from "@/components/booking/BookingCalendarDatePicker";
+import { usePaymentSettings } from "@/lib/settings/usePaymentSettings";
 
 /* ------------------------------------------------------------------ */
 /* Typed API client                                                    */
@@ -56,14 +66,15 @@ function BookingFlow() {
   const today = new Date().toISOString().split("T")[0];
   const [checkIn, setCheckIn] = useState(sp.get("checkIn") ?? "");
   const [checkOut, setCheckOut] = useState(sp.get("checkOut") ?? "");
-  const [adults, setAdults] = useState(2);
-  const [children, setChildren] = useState(0);
-  const [roomCount, setRoomCount] = useState(1);
+  const [adults, setAdults] = useState(sp.get("adults") ? Math.max(1, parseInt(sp.get("adults")!, 10)) : 2);
+  const [children, setChildren] = useState(sp.get("children") ? Math.max(0, parseInt(sp.get("children")!, 10)) : 0);
+  const [roomCount, setRoomCount] = useState(sp.get("rooms") ? Math.max(1, parseInt(sp.get("rooms")!, 10)) : 1);
   const [promoInput, setPromoInput] = useState("");
   const [search, setSearch] = useState<AvailabilityResult | null>(null);
   const [searching, setSearching] = useState(false);
   const [ratePlans, setRatePlans] = useState<RatePlanSummary[]>([]);
   const [ratePlanId, setRatePlanId] = useState("flexible");
+  const [maxStepReached, setMaxStepReached] = useState(0);
 
   // Quote
   const [quote, setQuote] = useState<BookingQuote | null>(null);
@@ -82,6 +93,48 @@ function BookingFlow() {
   const [reference, setReference] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
+  const [copiedBank, setCopiedBank] = useState(false);
+
+  // Global payment settings (real-time from Firestore)
+  const { paystackEnabled, settings: paymentSettings } = usePaymentSettings();
+
+  // Keep track of highest unlocked step for progress bar navigation
+  useEffect(() => {
+    setMaxStepReached((prev) => Math.max(prev, step));
+  }, [step]);
+
+  const canJumpTo = useCallback(
+    (targetStep: number) => {
+      if (targetStep === step) return false;
+      // Users can always jump back to completed earlier steps
+      if (targetStep < step) return true;
+      // Users can also jump forward if they previously unlocked that step and data is present
+      if (targetStep === 1 && search !== null) return true;
+      if (targetStep === 2 && quote !== null) return true;
+      if (targetStep === 3 && quote !== null && reference !== null) return true;
+      return false;
+    },
+    [step, search, quote, reference],
+  );
+
+  const jumpToStep = useCallback(
+    (targetStep: number) => {
+      if (!canJumpTo(targetStep)) return;
+      setError(null);
+      setStep(targetStep);
+
+      // Smooth scroll back to form container so user sees the step content
+      if (typeof window !== "undefined") {
+        const container = document.getElementById("booking-flow-container");
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          const targetY = window.pageYOffset + rect.top - 145;
+          window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
+        }
+      }
+    },
+    [canJumpTo],
+  );
 
   useEffect(() => {
     api<{ addons: typeof addons }>("/api/booking/addons")
@@ -116,8 +169,17 @@ function BookingFlow() {
     setQuote(null);
     if (res.data.rooms.every((r) => r.available <= 0)) {
       setError("No rooms are available for these dates. Please try different dates.");
+    } else {
+      setStep(1);
     }
   }, [checkIn, checkOut, adults, children, roomCount]);
+
+  // Auto-run search when directed from header reservation widget with valid dates
+  useEffect(() => {
+    if (sp.get("autosearch") === "true" && checkIn && checkOut && !search && !searching) {
+      runSearch();
+    }
+  }, [sp, checkIn, checkOut, search, searching, runSearch]);
 
   const selectRoom = useCallback(
     async (roomTypeId: string) => {
@@ -266,7 +328,7 @@ function BookingFlow() {
         <p className="text-sm text-stone-600 dark:text-stone-300 mb-8">
           A confirmation has been sent to {email}. Present your reference at the front desk on arrival.
         </p>
-        <div className="glass p-6 rounded-md text-left text-sm space-y-2 border border-[#ece6dd]">
+        <div className="glass p-6 rounded-2xl text-left text-sm space-y-2 border border-[#ece6dd] mb-6">
           {quote && (
             <>
               <div className="flex justify-between"><span className="text-stone-600 dark:text-stone-300">Room</span><span className="font-medium">{quote.roomTypeName}</span></div>
@@ -276,6 +338,21 @@ function BookingFlow() {
             </>
           )}
         </div>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link
+            href={`/booking/confirmation?ref=${encodeURIComponent(reference)}`}
+            className="btn-gold w-full sm:w-auto px-6 py-3 text-xs font-medium inline-flex items-center justify-center gap-2"
+          >
+            <FileDown className="h-4 w-4" />
+            <span>View &amp; Generate PDF Itinerary</span>
+          </Link>
+          <Link
+            href="/"
+            className="btn-outline-white w-full sm:w-auto px-6 py-3 text-xs font-medium inline-flex items-center justify-center gap-2"
+          >
+            Back to Home
+          </Link>
+        </div>
       </div>
     );
   }
@@ -283,66 +360,263 @@ function BookingFlow() {
   /* ---------------------------------------------------------------- */
   /* Wizard                                                            */
   /* ---------------------------------------------------------------- */
-  return (
-    <div className="grid gap-8 lg:grid-cols-[1.3fr_1fr]">
-      <div className="space-y-6">
-        {/* Stepper */}
-        <ol className="flex items-center gap-2 text-xs font-condensed uppercase tracking-wider" aria-label="Booking progress">
-          {STEPS.map((s, i) => (
-            <li key={s} className={`flex items-center gap-2 ${i === step ? "text-[var(--accent)] font-medium" : i < step ? "text-emerald-600" : "text-stone-400"}`}>
-              <span className={`h-6 w-6 rounded-full flex items-center justify-center text-xs border ${i === step ? "border-[var(--accent)]" : i < step ? "border-emerald-500 bg-emerald-50" : "border-stone-300"}`}>
-                {i < step ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
-              </span>
-              {s}
-              {i < STEPS.length - 1 && <span className="mx-1 h-px w-4 bg-stone-300" aria-hidden />}
-            </li>
-          ))}
-        </ol>
+  const STEP_CONFIG = [
+    { id: 0, label: "Dates", shortDesc: "Stay & Guests", icon: Calendar },
+    { id: 1, label: "Room", shortDesc: "Select Suite", icon: BedDouble },
+    { id: 2, label: "Details", shortDesc: "Guest Info", icon: User },
+    { id: 3, label: "Pay", shortDesc: "Secure Deposit", icon: CreditCard },
+  ] as const;
 
-        {error && (
-          <div role="alert" className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl flex gap-3 items-start">
-            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-800 dark:text-amber-300">{error}</p>
+  const progressPercentage = Math.round(((step + 1) / STEP_CONFIG.length) * 100);
+
+  return (
+    <div id="booking-flow-container" className="space-y-6">
+      {/* Sticky Progress Bar */}
+      <nav
+        aria-label="Booking steps"
+        className="sticky top-[64px] sm:top-[72px] lg:top-[78px] z-30 rounded-2xl bg-white/95 dark:bg-[#1a1815]/95 backdrop-blur-md border border-[#ece6dd] dark:border-[#2e2b26] shadow-sm p-3 sm:p-4 transition-all"
+      >
+        {/* Mobile View (< sm): Compact touch-friendly step navigation */}
+        <div className="sm:hidden">
+          <div className="flex items-center justify-between text-xs mb-2.5">
+            <div className="flex items-center gap-1.5">
+              <span className="font-condensed uppercase tracking-wider text-stone-500 dark:text-stone-400 font-medium">
+                Step {step + 1} of 4:
+              </span>
+              <strong className="text-stone-900 dark:text-white font-semibold">
+                {STEP_CONFIG[step].label}
+              </strong>
+            </div>
+            {step > 0 && (
+              <button
+                type="button"
+                onClick={() => jumpToStep(step - 1)}
+                className="text-[11px] font-condensed uppercase tracking-wider text-[var(--accent)] hover:underline inline-flex items-center gap-1 font-medium"
+              >
+                <ArrowLeft className="h-3 w-3" /> Back
+              </button>
+            )}
           </div>
-        )}
+
+          <div className="grid grid-cols-4 gap-1.5">
+            {STEP_CONFIG.map((item, idx) => {
+              const isCurrent = idx === step;
+              const isCompleted = idx < step || (idx <= maxStepReached && idx !== step && ((idx === 0) || (idx === 1 && search) || (idx === 2 && quote)));
+              const isClickable = canJumpTo(idx);
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  disabled={!isClickable}
+                  onClick={() => isClickable && jumpToStep(idx)}
+                  className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all ${
+                    isCurrent
+                      ? "bg-[var(--accent)]/10 text-stone-900 dark:text-white font-medium"
+                      : isClickable
+                        ? "hover:bg-stone-100 dark:hover:bg-stone-800/80 cursor-pointer text-stone-700 dark:text-stone-300"
+                        : "opacity-40 cursor-not-allowed text-stone-400"
+                  }`}
+                  aria-label={`${item.label} (${isCurrent ? "Current step" : isCompleted ? "Completed - tap to jump back" : "Upcoming"})`}
+                  aria-current={isCurrent ? "step" : undefined}
+                >
+                  <div
+                    className={`h-7 w-7 rounded-full flex items-center justify-center text-xs mb-1 transition-all ${
+                      isCurrent
+                        ? "bg-[var(--accent)] text-white shadow-sm ring-2 ring-[var(--accent)]/40 font-bold"
+                        : isCompleted
+                          ? "bg-emerald-600 text-white font-bold"
+                          : "border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-stone-500"
+                    }`}
+                  >
+                    {isCompleted ? <Check className="h-3.5 w-3.5 stroke-[2.5]" /> : idx + 1}
+                  </div>
+                  <span className="text-[11px] font-condensed uppercase tracking-wider truncate max-w-full">
+                    {item.label}
+                  </span>
+                  <span className="text-[9px] font-condensed uppercase tracking-tight">
+                    {isCurrent ? (
+                      <span className="text-[var(--accent)] font-semibold">Current</span>
+                    ) : isClickable ? (
+                      <span className="text-emerald-600 dark:text-emerald-400">Edit ↩</span>
+                    ) : (
+                      <span className="text-stone-400">—</span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Desktop / Tablet View (>= sm): Full stepped layout with track & contextual summary */}
+        <div className="hidden sm:block">
+          <div className="relative flex items-center justify-between">
+            {/* Background connecting track */}
+            <div className="absolute top-1/2 left-8 right-8 -translate-y-1/2 h-[2px] bg-stone-200 dark:bg-stone-800 z-0" aria-hidden="true" />
+
+            {/* Active connecting track */}
+            <div
+              className="absolute top-1/2 left-8 -translate-y-1/2 h-[2px] bg-emerald-500 transition-all duration-500 ease-out z-0"
+              style={{
+                width: `${(Math.min(step, maxStepReached) / (STEP_CONFIG.length - 1)) * 84}%`,
+              }}
+              aria-hidden="true"
+            />
+
+            {STEP_CONFIG.map((item, idx) => {
+              const Icon = item.icon;
+              const isCurrent = idx === step;
+              const isCompleted = idx < step || (idx <= maxStepReached && idx !== step && ((idx === 0) || (idx === 1 && search) || (idx === 2 && quote)));
+              const isClickable = canJumpTo(idx);
+
+              let contextHint: string = item.shortDesc;
+              if (idx === 0 && checkIn && checkOut) {
+                contextHint = `${checkIn} → ${checkOut}`;
+              } else if (idx === 1 && quote) {
+                contextHint = quote.roomTypeName;
+              } else if (idx === 2 && name) {
+                contextHint = name;
+              } else if (idx === 3 && quote) {
+                contextHint = `Deposit ${naira(quote.pricing.depositDue / 100)}`;
+              }
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  disabled={!isClickable}
+                  onClick={() => isClickable && jumpToStep(idx)}
+                  className={`relative z-10 flex items-center gap-3 px-3.5 py-2 rounded-xl transition-all ${
+                    isCurrent
+                      ? "bg-white dark:bg-[#201d19] ring-2 ring-[var(--accent)] shadow-sm"
+                      : isClickable
+                        ? "bg-white/90 dark:bg-[#1a1815]/90 hover:bg-stone-50 dark:hover:bg-stone-800 cursor-pointer group hover:shadow-sm"
+                        : "bg-white/50 dark:bg-[#1a1815]/50 opacity-60 cursor-not-allowed"
+                  }`}
+                  aria-label={`${item.label}: ${contextHint} (${isCurrent ? "Current step" : isCompleted ? "Completed step - click to jump back" : "Upcoming step"})`}
+                  aria-current={isCurrent ? "step" : undefined}
+                >
+                  <div
+                    className={`h-9 w-9 rounded-full flex items-center justify-center transition-all shrink-0 ${
+                      isCurrent
+                        ? "bg-[var(--accent)] text-white shadow-md shadow-[var(--accent)]/20 ring-4 ring-[var(--accent)]/20 font-bold"
+                        : isCompleted
+                          ? "bg-emerald-600 text-white font-bold group-hover:scale-105"
+                          : "border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-stone-400"
+                    }`}
+                  >
+                    {isCompleted ? (
+                      <Check className="h-4 w-4 stroke-[2.5]" />
+                    ) : (
+                      <Icon className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div className="text-left min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`text-xs font-condensed uppercase tracking-wider font-semibold block ${
+                          isCurrent
+                            ? "text-[var(--accent-dark)] dark:text-[var(--accent-light)]"
+                            : isClickable
+                              ? "text-stone-800 dark:text-stone-200 group-hover:text-[var(--accent)]"
+                              : "text-stone-400 dark:text-stone-500"
+                        }`}
+                      >
+                        {item.label}
+                      </span>
+                      {isClickable && (
+                        <span className="text-[10px] font-condensed uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-medium group-hover:bg-[var(--accent)] group-hover:text-white transition-colors">
+                          Edit ↩
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-stone-500 dark:text-stone-400 block truncate max-w-[120px] lg:max-w-[160px]">
+                      {contextHint}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Bottom subtle progress line */}
+        <div className="mt-3 -mx-3 -mb-3 sm:-mx-4 sm:-mb-4 h-[2.5px] bg-stone-100 dark:bg-stone-800/80 overflow-hidden rounded-b-2xl">
+          <div
+            className="h-full bg-[var(--accent)] transition-all duration-500 ease-out"
+            style={{
+              width: `${progressPercentage}%`,
+            }}
+          />
+        </div>
+      </nav>
+
+      <div className="grid gap-8 lg:grid-cols-[1.3fr_1fr]">
+        <div className="space-y-6">
+          {error && (
+            <div role="alert" className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl flex gap-3 items-start">
+              <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800 dark:text-amber-300">{error}</p>
+            </div>
+          )}
 
         {/* Step 0 — Search */}
         {step === 0 && (
-          <section className="glass p-6 rounded-md space-y-5 border border-[#ece6dd]/80" aria-label="Search availability">
+          <section className="glass p-6 rounded-md space-y-6 border border-[#ece6dd]/80" aria-label="Search availability">
             <div className="flex items-center gap-2 border-b border-[#ece6dd]/60 pb-3">
               <span className="h-6 w-6 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-xs font-medium flex items-center justify-center">1</span>
-              <h3 className="font-display text-xl text-stone-900 dark:text-white font-normal">Stay Dates &amp; Guests</h3>
+              <div>
+                <h3 className="font-display text-xl text-stone-900 dark:text-white font-normal">Stay Dates &amp; Guests</h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                  Select your arrival and departure dates. Calendar reflects real-time room inventory and sold-out nights.
+                </p>
+              </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="checkin" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Check-in Date</label>
-                <input id="checkin" type="date" required value={checkIn} min={today} onChange={(e) => setCheckIn(e.target.value)} className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none text-stone-900 dark:text-white" />
-              </div>
-              <div>
-                <label htmlFor="checkout" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Check-out Date</label>
-                <input id="checkout" type="date" required value={checkOut} min={checkIn || today} onChange={(e) => setCheckOut(e.target.value)} className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none text-stone-900 dark:text-white" />
-              </div>
-              <div>
-                <label htmlFor="adults" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Adults</label>
-                <select id="adults" value={adults} onChange={(e) => setAdults(Number(e.target.value))} className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none text-stone-900 dark:text-white">
-                  {[1, 2, 3, 4, 5].map((a) => <option key={a} value={a}>{a} {a === 1 ? "Adult" : "Adults"}</option>)}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="children" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Children</label>
-                <select id="children" value={children} onChange={(e) => setChildren(Number(e.target.value))} className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none text-stone-900 dark:text-white">
-                  {[0, 1, 2, 3].map((c) => <option key={c} value={c}>{c} {c === 1 ? "Child" : "Children"}</option>)}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="rooms" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Rooms</label>
-                <select id="rooms" value={roomCount} onChange={(e) => setRoomCount(Number(e.target.value))} className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none text-stone-900 dark:text-white">
-                  {[1, 2, 3].map((r) => <option key={r} value={r}>{r} Room{r > 1 ? "s" : ""}</option>)}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="promo" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Promo Code (optional)</label>
-                <input id="promo" value={promoInput} onChange={(e) => setPromoInput(e.target.value.toUpperCase())} placeholder="e.g. WELCOME10" className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none placeholder:text-stone-400 text-stone-900 dark:text-white" />
+
+            {/* Real-time Inventory Calendar Date Picker */}
+            <BookingCalendarDatePicker
+              checkIn={checkIn}
+              checkOut={checkOut}
+              onSelectDates={(inDate, outDate) => {
+                setCheckIn(inDate);
+                setCheckOut(outDate);
+                if (error) setError(null);
+              }}
+              adults={adults}
+              childrenCount={children}
+              roomCount={roomCount}
+              minNights={1}
+            />
+
+            {/* Occupancy, Rooms & Promo Options */}
+            <div className="pt-4 border-t border-[#ece6dd]/70 dark:border-stone-800">
+              <h4 className="text-xs font-condensed uppercase tracking-wider text-stone-600 dark:text-stone-300 font-semibold mb-3">
+                Occupancy &amp; Preferences
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label htmlFor="adults" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Adults</label>
+                  <select id="adults" value={adults} onChange={(e) => setAdults(Number(e.target.value))} className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none text-stone-900 dark:text-white">
+                    {[1, 2, 3, 4, 5].map((a) => <option key={a} value={a}>{a} {a === 1 ? "Adult" : "Adults"}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="children" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Children</label>
+                  <select id="children" value={children} onChange={(e) => setChildren(Number(e.target.value))} className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none text-stone-900 dark:text-white">
+                    {[0, 1, 2, 3].map((c) => <option key={c} value={c}>{c} {c === 1 ? "Child" : "Children"}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="rooms" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Rooms</label>
+                  <select id="rooms" value={roomCount} onChange={(e) => setRoomCount(Number(e.target.value))} className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none text-stone-900 dark:text-white">
+                    {[1, 2, 3].map((r) => <option key={r} value={r}>{r} Room{r > 1 ? "s" : ""}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="promo" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Promo Code (optional)</label>
+                  <input id="promo" value={promoInput} onChange={(e) => setPromoInput(e.target.value.toUpperCase())} placeholder="e.g. WELCOME10" className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none placeholder:text-stone-400 text-stone-900 dark:text-white" />
+                </div>
               </div>
             </div>
 
@@ -391,7 +665,7 @@ function BookingFlow() {
           <section className="space-y-4" aria-label="Select a room">
             <div className="flex items-center justify-between">
               <h3 className="font-display text-xl text-stone-900 dark:text-white">Available Rooms</h3>
-              <button type="button" onClick={() => setStep(0)} className="text-xs font-condensed uppercase tracking-wider text-stone-500 hover:text-[var(--accent)] inline-flex items-center gap-1">
+              <button type="button" onClick={() => jumpToStep(0)} className="text-xs font-condensed uppercase tracking-wider text-stone-500 hover:text-[var(--accent)] inline-flex items-center gap-1 transition-colors">
                 <ArrowLeft className="h-3.5 w-3.5" /> Change dates
               </button>
             </div>
@@ -490,8 +764,8 @@ function BookingFlow() {
             )}
 
             <div className="flex gap-3">
-              <button type="button" onClick={() => setStep(1)} className="btn-outline-white px-6 py-3 text-xs font-medium inline-flex items-center gap-2">
-                <ArrowLeft className="h-4 w-4" /> Back
+              <button type="button" onClick={() => jumpToStep(1)} className="btn-outline-white px-6 py-3 text-xs font-medium inline-flex items-center gap-2">
+                <ArrowLeft className="h-4 w-4" /> Back to Rooms
               </button>
               <button
                 type="button"
@@ -513,25 +787,158 @@ function BookingFlow() {
               <span className="h-6 w-6 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-xs font-medium flex items-center justify-center">4</span>
               <h3 className="font-display text-xl text-stone-900 dark:text-white font-normal">Secure Your Reservation</h3>
             </div>
+
             <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl text-xs text-emerald-800 dark:text-emerald-300">
-              Room held for 30 minutes — reference <strong>{reference}</strong>. Complete payment to confirm.
+              Room held for 30 minutes — reference <strong>{reference}</strong>.
             </div>
-            <p className="text-xs text-stone-600 dark:text-stone-300">
-              Pay the deposit of <strong>{naira(quote.pricing.depositDue / 100)}</strong> now with Paystack (cards, bank transfer, USSD). The balance of {naira(quote.pricing.balanceDue / 100)} is due at the hotel.
-            </p>
-            <button type="button" onClick={payNow} disabled={busy} className="btn-gold w-full min-h-[52px] text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-              <span>Pay {naira(quote.pricing.depositDue / 100)} with Paystack</span>
-            </button>
-            <button type="button" onClick={checkPayment} disabled={checkingPayment} className="w-full py-3 text-xs font-condensed uppercase tracking-wider text-stone-600 dark:text-stone-300 hover:text-[var(--accent)] transition-colors">
-              {checkingPayment ? "Verifying payment…" : "I've completed payment — verify now"}
-            </button>
+
+            {/* If Paystack is Enabled: Online Paystack Gateway is Primary */}
+            {paystackEnabled ? (
+              <div className="space-y-4">
+                <p className="text-xs text-stone-600 dark:text-stone-300">
+                  Pay the deposit of <strong>{naira(quote.pricing.depositDue / 100)}</strong> now with Paystack (cards, bank transfer, USSD). The balance of {naira(quote.pricing.balanceDue / 100)} is due at the hotel.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={payNow}
+                  disabled={busy}
+                  className="btn-gold w-full min-h-[52px] text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-md"
+                >
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                  <span>Pay {naira(quote.pricing.depositDue / 100)} with Paystack</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={checkPayment}
+                  disabled={checkingPayment}
+                  className="w-full py-2.5 text-xs font-condensed uppercase tracking-wider text-stone-600 dark:text-stone-300 hover:text-[var(--accent)] transition-colors"
+                >
+                  {checkingPayment ? "Verifying payment…" : "I've completed payment — verify now"}
+                </button>
+
+                {/* Alternative Settlement Option */}
+                <div className="pt-3 border-t border-[#ece6dd]/60 text-center">
+                  <span className="text-[11px] text-stone-500 block mb-2 font-medium">Or prefer manual transfer / payment on arrival?</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.assign(
+                        `/booking/confirmation?ref=${encodeURIComponent(reference)}&method=bank_transfer`
+                      );
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50/80 dark:bg-stone-900 text-stone-800 dark:text-stone-200 text-xs font-semibold hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Building2 className="h-4 w-4 text-[var(--accent)]" />
+                    <span>Confirm Hold &amp; Pay via Direct Bank Transfer / At Hotel</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* If Paystack is Disabled: Direct Bank Transfer & Front Desk Mode */
+              <div className="space-y-4">
+                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+                  <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block font-semibold">Online Card Checkout Paused</strong>
+                    <span>
+                      {paymentSettings.noticeMessage ||
+                        "Online Paystack payment is currently offline. Direct Bank Transfer and Front-Desk settlements are active."}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-white dark:bg-[#1a1815] border border-[#ece6dd] dark:border-[#2e2b26] space-y-3">
+                  <div className="flex items-center justify-between text-xs border-b border-[#ece6dd]/60 dark:border-stone-800 pb-2">
+                    <span className="font-semibold text-stone-900 dark:text-white flex items-center gap-1.5">
+                      <Building2 className="h-4 w-4 text-[var(--accent)]" />
+                      <span>Hotel Bank Account for Transfer:</span>
+                    </span>
+                    <span className="font-bold text-[var(--accent)] text-sm">
+                      {naira(quote.pricing.depositDue / 100)} deposit
+                    </span>
+                  </div>
+
+                  <div className="grid gap-2 text-xs text-stone-700 dark:text-stone-300">
+                    <div className="flex justify-between">
+                      <span className="text-stone-500">Bank:</span>
+                      <strong className="text-stone-900 dark:text-white font-medium">
+                        {paymentSettings.bankDetails?.bankName || "Zenith Bank"}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-stone-500">Account Name:</span>
+                      <strong className="text-stone-900 dark:text-white font-medium">
+                        {paymentSettings.bankDetails?.accountName || "Banky Hotel & Suites Ltd"}
+                      </strong>
+                    </div>
+                    <div className="flex items-center justify-between bg-stone-50 dark:bg-stone-900/80 p-2 rounded-lg border border-stone-200 dark:border-stone-800">
+                      <div>
+                        <span className="text-[10px] text-stone-500 block uppercase font-mono">Account Number:</span>
+                        <span className="font-mono font-bold text-base text-stone-900 dark:text-white">
+                          {paymentSettings.bankDetails?.accountNumber || "1018273645"}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const num = paymentSettings.bankDetails?.accountNumber || "1018273645";
+                          if (navigator.clipboard) {
+                            navigator.clipboard.writeText(num);
+                            setCopiedBank(true);
+                            setTimeout(() => setCopiedBank(false), 2000);
+                          }
+                        }}
+                        className="p-1.5 px-3 rounded-md bg-white dark:bg-stone-800 border text-xs font-semibold text-stone-700 dark:text-stone-200 hover:text-[var(--accent)] inline-flex items-center gap-1 shadow-sm"
+                      >
+                        {copiedBank ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                        <span>{copiedBank ? "Copied" : "Copy"}</span>
+                      </button>
+                    </div>
+                    <div className="text-[11px] text-stone-500 italic">
+                      Narration: Please use reference <strong>{reference}</strong> when transferring.
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.assign(
+                      `/booking/confirmation?ref=${encodeURIComponent(reference)}&method=bank_transfer`
+                    );
+                  }}
+                  className="btn-gold w-full min-h-[52px] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                >
+                  <Building2 className="h-4 w-4" />
+                  <span>Confirm Reservation &amp; Settle via Bank Transfer / At Hotel</span>
+                </button>
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-[#ece6dd]/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => jumpToStep(2)}
+                className="text-xs font-condensed uppercase tracking-wider text-stone-500 hover:text-[var(--accent)] inline-flex items-center gap-1.5 transition-colors"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" /> Modify guest details
+              </button>
+              <button
+                type="button"
+                onClick={() => jumpToStep(1)}
+                className="text-xs font-condensed uppercase tracking-wider text-stone-500 hover:text-[var(--accent)] inline-flex items-center gap-1.5 transition-colors"
+              >
+                Change room
+              </button>
+            </div>
           </section>
         )}
       </div>
 
       {/* Sidebar: authoritative price breakdown */}
-      <aside className="h-fit rounded-xl p-6 sm:p-8 space-y-4 border border-[#ece6dd]/80 bg-white dark:bg-[#1a1815] shadow-md lg:sticky lg:top-28" aria-live="polite">
+      <aside className="h-fit rounded-xl p-6 sm:p-8 space-y-4 border border-[#ece6dd]/80 bg-white dark:bg-[#1a1815] shadow-md lg:sticky lg:top-[160px]" aria-live="polite">
         <div>
           <span className="eyebrow text-[var(--accent)] font-medium">Stay Breakdown</span>
           <h2 className="mt-1 text-2xl sm:text-3xl font-display font-normal text-stone-900 dark:text-white">
@@ -594,6 +1001,7 @@ function BookingFlow() {
           </div>
         )}
       </aside>
+    </div>
     </div>
   );
 }

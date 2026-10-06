@@ -361,3 +361,154 @@ h1, h2, h3, h4, h5, h6,
     margin: 2mm 0;
   }
 }
+
+/* Shimmer animation keyframes for active content loading placeholder */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+    -webkit-transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+    -webkit-transform: translateX(100%);
+  }
+}
+
+@-webkit-keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+    -webkit-transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+    -webkit-transform: translateX(100%);
+  }
+}
+
+/* Aspect ratio [16/10] image containers: blurred placeholder background using CSS filter: blur(20px) while full image loads */
+.aspect-\[16\/10\],
+[class*="aspect-[16/10]"],
+[class*="aspect-\\[16/10\\]"] {
+  position: relative;
+  overflow: hidden;
+  background-color: #f5f5f4;
+}
+
+:is(.dark) .aspect-\[16\/10\],
+:is(.dark) [class*="aspect-[16/10]"],
+:is(.dark) [class*="aspect-\\[16/10\\]"] {
+  background-color: #1f1d1a;
+}
+
+.aspect-\[16\/10\] .img-blur-bg,
+.aspect-\[16\/10\] [data-placeholder],
+.aspect-\[16\/10\] .placeholder-shimmer,
+[class*="aspect-[16/10]"] .img-blur-bg,
+[class*="aspect-[16/10]"] [data-placeholder],
+[class*="aspect-[16/10]"] .placeholder-shimmer,
+.img-blur-bg {
+  position: absolute;
+  inset: -15px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(20px);
+  -webkit-filter: blur(20px);
+  transform: scale(1.15);
+  pointer-events: none;
+  z-index: 1;
+  transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  will-change: opacity;
+}
+
+/* Subtle shimmer animation overlay on top of placeholder divs inside .aspect-[16/10] containers to indicate active asset loading */
+.aspect-\[16\/10\] .img-blur-bg::after,
+.aspect-\[16\/10\] [data-placeholder]::after,
+.aspect-\[16\/10\] .placeholder-shimmer::after,
+[class*="aspect-[16/10]"] .img-blur-bg::after,
+[class*="aspect-[16/10]"] [data-placeholder]::after,
+[class*="aspect-[16/10]"] .placeholder-shimmer::after,
+.img-blur-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  -webkit-transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.08) 20%,
+    rgba(255, 255, 255, 0.35) 50%,
+    rgba(255, 255, 255, 0.08) 80%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shimmer 1.8s infinite ease-in-out;
+  -webkit-animation: shimmer 1.8s infinite ease-in-out;
+  pointer-events: none;
+  z-index: 2;
+}
+
+:is(.dark) .aspect-\[16\/10\] .img-blur-bg::after,
+:is(.dark) .aspect-\[16\/10\] [data-placeholder]::after,
+:is(.dark) .aspect-\[16\/10\] .placeholder-shimmer::after,
+:is(.dark) [class*="aspect-[16/10]"] .img-blur-bg::after,
+:is(.dark) [class*="aspect-[16/10]"] [data-placeholder]::after,
+:is(.dark) [class*="aspect-[16/10]"] .placeholder-shimmer::after,
+:is(.dark) .img-blur-bg::after {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.03) 20%,
+    rgba(255, 255, 255, 0.16) 50%,
+    rgba(255, 255, 255, 0.03) 80%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+/* Smooth opacity fade out when the high-resolution image finishes loading */
+.aspect-\[16\/10\] .img-blur-bg.is-loaded,
+.aspect-\[16\/10\] [data-placeholder].is-loaded,
+[class*="aspect-[16/10]"] .img-blur-bg.is-loaded,
+[class*="aspect-[16/10]"] [data-placeholder].is-loaded,
+.aspect-\[16\/10\][data-image-loaded="true"] .img-blur-bg,
+.aspect-\[16\/10\][data-image-loaded="true"] [data-placeholder],
+[class*="aspect-[16/10]"][data-image-loaded="true"] .img-blur-bg,
+[class*="aspect-[16/10]"][data-image-loaded="true"] [data-placeholder] {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+/* Images inside aspect-[16/10] containers: smooth render transition */
+.aspect-\[16\/10\] img,
+[class*="aspect-[16/10]"] img {
+  transition: opacity 0.5s ease-in-out, transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+/* Print optimization for Reservation Itinerary */
+@media print {
+  header,
+  footer,
+  nav,
+  .print-hide,
+  [data-no-print="true"] {
+    display: none !important;
+  }
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  #booking-itinerary-card {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+}
+

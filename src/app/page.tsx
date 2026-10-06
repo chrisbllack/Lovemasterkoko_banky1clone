@@ -61,7 +61,6 @@ function HeroVideoHeader() {
         muted
         playsInline
         preload="auto"
-        poster="/images/hero.jpg"
         className="w-full h-full object-cover select-none"
       >
         <source src="/videos/hero.mp4" type="video/mp4" />
@@ -101,17 +100,17 @@ export default function Home() {
   return (
     <>
       {/* HERO — critical, inlined */}
-      <section className="relative min-h-[95svh] sm:min-h-[100svh] w-full overflow-hidden flex flex-col justify-end">
+      <section className="relative min-h-[95svh] sm:min-h-[100svh] w-full overflow-hidden flex flex-col justify-center lg:justify-end">
         <HeroVideoHeader />
-        <div className="container-x relative z-30 flex flex-col justify-end pt-28 pb-8 sm:pb-12">
-          <div className="max-w-3xl pb-6 sm:pb-8 mx-auto lg:mx-0 text-center lg:text-left">
+        <div className="container-x relative z-30 flex flex-col justify-center lg:justify-end pt-20 sm:pt-24 lg:pt-28 pb-8 sm:pb-12 my-auto lg:my-0">
+          <div className="max-w-3xl pb-0 lg:pb-8 mx-auto lg:mx-0 text-center lg:text-left">
             <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-normal text-white leading-[1.1] text-center lg:text-left">
               Banky Hotel &amp; Suites
             </h1>
-            <p className="mt-3 sm:mt-5 max-w-xl mx-auto lg:mx-0 text-[14px] leading-relaxed text-stone-100 font-normal text-center lg:text-left">
+            <p className="mt-3 sm:mt-5 max-w-xl mx-auto lg:mx-0 text-[14px] sm:text-base leading-relaxed text-stone-100 font-normal text-center lg:text-left">
               Quiet luxury in the heart of Ado-Ekiti
             </p>
-            <div className="mt-8 flex flex-wrap items-center justify-center lg:justify-start gap-3.5">
+            <div className="mt-6 sm:mt-8 flex flex-wrap items-center justify-center lg:justify-start gap-3.5">
               <Link href="/booking" className="btn-gold px-8 py-4 text-xs sm:text-sm inline-flex items-center gap-2.5 shadow-lg shadow-[var(--accent)]/30 font-medium">
                 <span>Book Now</span><ArrowRight className="h-4 w-4" />
               </Link>

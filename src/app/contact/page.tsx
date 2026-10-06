@@ -18,9 +18,37 @@ export default function ContactPage() {
       <section className="py-16 sm:py-24 bg-white dark:bg-[#202023]">
         <div className="container-x max-w-4xl">
           {/* Landscape Exterior Feature */}
-          <div className="mb-12 overflow-hidden rounded-2xl border border-[#ece6dd] dark:border-[#2e2b26] shadow-md aspect-[16/10] sm:aspect-[21/9] relative">
-            <img src="/images/hotel-front-right.jpg" alt="Banky Hotel & Suites Entrance" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-6">
+          <div
+            className="mb-12 overflow-hidden rounded-2xl border border-[#ece6dd] dark:border-[#2e2b26] shadow-md aspect-[16/10] sm:aspect-[21/9] relative bg-stone-200 dark:bg-stone-800"
+            {...({ loading: "lazy" } as any)}
+          >
+            {/* Blurred placeholder background using CSS filter: blur(20px) while full image loads */}
+            <div
+              className="img-blur-bg absolute inset-0 bg-cover bg-center pointer-events-none transition-opacity duration-700"
+              style={{
+                backgroundImage: "url('/images/hotel-front-right.jpg')",
+                filter: "blur(20px)",
+                WebkitFilter: "blur(20px)",
+                transform: "scale(1.15)",
+              }}
+              data-placeholder="blur"
+              aria-hidden="true"
+            />
+            <img
+              src="/images/hotel-front-right.jpg"
+              alt="Banky Hotel & Suites Entrance"
+              loading="lazy"
+              decoding="async"
+              className="relative z-10 w-full h-full object-cover transition-opacity duration-500"
+              onLoad={(e) => {
+                const sibling = e.currentTarget.previousElementSibling as HTMLElement | null;
+                if (sibling) {
+                  sibling.style.opacity = "0";
+                  sibling.classList.add("is-loaded");
+                }
+              }}
+            />
+            <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-6">
               <div>
                 <span className="text-[var(--accent)] text-xs font-condensed tracking-wider uppercase font-bold block mb-1">Visit Us In Person</span>
                 <p className="text-white text-base sm:text-lg font-display">Ado-Ekiti, Ekiti State · Warmly Welcoming Guests Daily</p>

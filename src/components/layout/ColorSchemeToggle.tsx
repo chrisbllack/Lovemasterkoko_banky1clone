@@ -1,4 +1,5 @@
 "use client";
+import { usePathname } from "next/navigation";
 import { useColorScheme, type ColorScheme } from "@/lib/ColorSchemeContext";
 import { Palette, RotateCcw } from "lucide-react";
 import { useState } from "react";
@@ -9,8 +10,13 @@ const schemes: { id: ColorScheme; label: string; colors: string[] }[] = [
 ];
 
 export function ColorSchemeToggle() {
+  const pathname = usePathname();
   const { scheme, setScheme } = useColorScheme();
   const [open, setOpen] = useState(false);
+
+  if (pathname?.startsWith("/qr")) {
+    return null;
+  }
 
   return (
     <div className="fixed bottom-6 left-6 z-40">

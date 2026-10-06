@@ -1,6 +1,21 @@
 "use client";
 import { useState, useEffect } from "react";
-import { CalendarRange, BedDouble, Users, DollarSign, LogIn, LogOut } from "lucide-react";
+import Link from "next/link";
+import {
+  CalendarRange,
+  BedDouble,
+  Users,
+  DollarSign,
+  LogIn,
+  LogOut,
+  CreditCard,
+  ShieldCheck,
+  ShieldAlert,
+  Loader2,
+  Settings,
+  ArrowRight,
+  ReceiptText,
+} from "lucide-react";
 import { naira } from "@/lib/hotel";
 import type { Reservation } from "@/lib/booking/types";
 import {
@@ -8,6 +23,7 @@ import {
   DailyTrendItem,
   MonthMetadata,
 } from "@/components/admin/RevenueTrendChart";
+import { usePaymentSettings } from "@/lib/settings/usePaymentSettings";
 
 function StatCard({ icon: Icon, label, value, color }: { icon: typeof CalendarRange; label: string; value: string | number; color: string }) {
   return (
@@ -34,6 +50,7 @@ export default function AdminOverview() {
     monthMetadata?: MonthMetadata;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const { paystackEnabled, isUpdating: isUpdatingPayment, togglePaystack } = usePaymentSettings();
 
   useEffect(() => {
     fetch("/api/admin/stats")
@@ -56,11 +73,75 @@ export default function AdminOverview() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="font-display text-3xl text-[#222] dark:text-white mb-1">Dashboard Overview</h1>
-        <p className="text-sm text-[#666] dark:text-stone-400">
-          {stats ? `Live operations for ${stats.today}.` : "Loading live operations…"}
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl text-[#222] dark:text-white mb-1">Dashboard Overview</h1>
+          <p className="text-sm text-[#666] dark:text-stone-400">
+            {stats ? `Live operations for ${stats.today}.` : "Loading live operations…"}
+          </p>
+        </div>
+
+        {/* Quick Paystack Gateway Master Switch */}
+        <div className="flex items-center gap-3 p-2.5 px-4 rounded-xl border bg-white dark:bg-[#1a1815] border-[#ece6dd] dark:border-[#2e2b26] shadow-sm">
+          <div className="flex items-center gap-2">
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                paystackEnabled ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+              }`}
+            />
+            <div className="text-xs">
+              <span className="font-semibold text-stone-900 dark:text-white block leading-tight">
+                Paystack: {paystackEnabled ? "Enabled" : "Disabled"}
+              </span>
+              <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                {paystackEnabled ? "Cards & Transfers Live" : "Bank Transfer & Front Desk Mode"}
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => togglePaystack()}
+            disabled={isUpdatingPayment}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+              paystackEnabled
+                ? "bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800"
+                : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+            }`}
+            title="Click to toggle Paystack payment gateway site-wide"
+          >
+            {isUpdatingPayment ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : paystackEnabled ? (
+              <>
+                <ShieldAlert className="h-3.5 w-3.5" />
+                <span>Disable Paystack</span>
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="h-3.5 w-3.5" />
+                <span>Enable Paystack</span>
+              </>
+            )}
+          </button>
+
+          <Link
+            href="/admin/transactions"
+            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 flex items-center gap-1.5 transition-colors"
+            title="Open Transaction Audit Ledger"
+          >
+            <ReceiptText className="h-3.5 w-3.5 text-[var(--accent)]" />
+            <span className="hidden sm:inline">Transaction Audit</span>
+          </Link>
+
+          <Link
+            href="/admin/settings"
+            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800"
+            title="Open Payment Settings"
+          >
+            <Settings className="h-4 w-4" />
+          </Link>
+        </div>
       </div>
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard icon={BedDouble} label="Rooms" value={stats?.totalRooms ?? "—"} color="bg-[#ffbf00]/10 text-[#ffbf00]" />

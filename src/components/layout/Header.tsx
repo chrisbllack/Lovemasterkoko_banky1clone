@@ -6,12 +6,12 @@ import { Menu, X, Calendar, Sun, Moon } from "lucide-react";
 import { PhoneSolidIcon } from "@/components/icons/PhoneSolidIcon";
 import { HOTEL } from "@/lib/hotel";
 import { useTheme } from "@/lib/ThemeContext";
-import { BankyLogo } from "@/components/common/BankyLogo";
 
 const NAV = [
   { to: "/", label: "Home" },
   { to: "/rooms", label: "Rooms & Suites" },
-  { to: "/dining", label: "Restaurant & Bar" },
+  { to: "/restaurant", label: "The Restaurant" },
+  { to: "/bar", label: "Lounge" },
   { to: "/events", label: "Meetings & Events" },
   { to: "/gallery", label: "Gallery" },
   { to: "/about", label: "About" },
@@ -69,6 +69,10 @@ export function Header() {
     return () => { document.body.style.overflow = ""; };
   }, [open]);
 
+  if (pathname?.startsWith("/qr")) {
+    return null;
+  }
+
   return (
     <header ref={headerRef} className="fixed inset-x-0 top-0 z-50">
       <div className={`transition-all duration-[400ms] ease-in-out ${scrolled ? "bg-[#0a2777]/40 backdrop-blur-md shadow-[0_4px_12px_rgba(0,0,0,0.18)]" : "bg-transparent"}`}>
@@ -94,23 +98,13 @@ export function Header() {
             </a>
           </div>
 
-          {/* Center — logo. Desktop mode uses attached image, mobile mode retains responsive mark */}
-          <Link href="/" className="flex items-center group shrink-0">
-            {/* Mobile / Tablet Logo (< lg) */}
-            <span className="lg:hidden shrink-0 flex items-center justify-center w-[96px] sm:w-[115px] h-[65px] sm:h-[77px] bg-transparent border-none p-0 overflow-hidden transition-all duration-[400ms] ease-in-out group-hover:scale-105">
-              <img
-                src="/images/Banky Hotel & Suites Main Logo 1.png"
-                alt="Banky Hotel & Suites Main Logo"
-                className="w-full h-full object-contain bg-transparent cropped-header-logo"
-              />
-            </span>
-
-            {/* Desktop Mode Logo (>= lg) - replaced with attached image */}
-            <span className="hidden lg:flex shrink-0 items-center justify-center w-auto h-[68px] xl:h-[76px] bg-transparent border-none p-0 overflow-hidden transition-all duration-[400ms] ease-in-out group-hover:scale-105">
+          {/* Center — Header logo using banky-desktop-logo in public/images/ exactly as it is */}
+          <Link href="/" className="flex items-center group shrink-0" aria-label="Banky Hotel & Suites Home">
+            <span className="shrink-0 flex items-center justify-center w-auto h-[54px] sm:h-[64px] lg:h-[72px] xl:h-[78px] bg-transparent border-none p-0 transition-all duration-[400ms] ease-in-out group-hover:scale-105">
               <img
                 src="/images/banky-desktop-logo.png"
-                alt="Banky Hotel & Suites Main Logo"
-                className="h-full w-auto max-w-[150px] xl:max-w-[170px] object-contain bg-transparent select-none drop-shadow-sm"
+                alt="Banky Hotel & Suites"
+                className="h-full w-auto max-w-[130px] sm:max-w-[155px] lg:max-w-[180px] object-contain bg-transparent select-none drop-shadow-sm"
               />
             </span>
           </Link>
@@ -158,17 +152,14 @@ export function Header() {
       {open && (
         <div className="fixed inset-0 z-50 bg-[#1b1b1b] text-white flex flex-col justify-between overflow-y-auto animate-fade-in">
           <div className="container-x py-4 sm:py-6 flex items-center justify-between border-b border-white/10 shrink-0">
-            <Link href="/" onClick={() => setOpen(false)} className="flex items-center gap-3">
-              <span className="shrink-0 flex items-center justify-center bg-transparent p-0">
-                <BankyLogo
-                  className="w-[68px] sm:w-[80px] h-auto"
-                  variant="white"
+            <Link href="/" onClick={() => setOpen(false)} className="flex items-center group shrink-0" aria-label="Banky Hotel & Suites Home">
+              <span className="shrink-0 flex items-center justify-center bg-transparent p-0 h-12 sm:h-14">
+                <img
+                  src="/images/banky-desktop-logo.png"
+                  alt="Banky Hotel & Suites"
+                  className="h-full w-auto object-contain bg-transparent select-none drop-shadow-sm"
                 />
               </span>
-              <div>
-                <span className="font-display text-xl sm:text-2xl text-white block leading-tight font-normal">Banky Hotel &amp; Suites</span>
-                <span className="font-condensed text-[0.62rem] tracking-[0.25em] uppercase" style={{ color: "var(--accent)" }}>The Luxury Experience</span>
-              </div>
             </Link>
             <button onClick={() => setOpen(false)} className="h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/20 bg-white/5 flex items-center justify-center text-white transition-all" style={{ ["--tw-ring-opacity" as string]: "1" }}
               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--accent)"; }}

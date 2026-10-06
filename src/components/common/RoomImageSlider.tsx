@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, memo } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
+import { ZoomIn, ChevronLeft, ChevronRight } from "lucide-react";
+import { preloadImages } from "@/lib/image-preloader";
 
 interface RoomImageSliderProps {
   images: string[];
@@ -11,6 +12,7 @@ interface RoomImageSliderProps {
   autoSlideInterval?: number; // ms, default 6000 (6 seconds)
   showControls?: boolean;
   onExpand?: (index: number) => void;
+  priority?: boolean;
 }
 
 export const RoomImageSlider = memo(function RoomImageSlider({
@@ -20,53 +22,102 @@ export const RoomImageSlider = memo(function RoomImageSlider({
   autoSlideInterval = 6000,
   showControls = true,
   onExpand,
+  priority = false,
 }: RoomImageSliderProps) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const total = images.length;
   const isMulti = total > 1;
 
-  const next = useCallback(() => {
-    setCurrentIdx((prev) => (prev + 1) % total);
-  }, [total]);
+  // Preload and pre-decode all images in the slider immediately
+  useEffect(() => {
+    if (images && images.length > 0) {
+      preloadImages(images, priority);
+    }
+  }, [images, priority]);
 
-  const prev = useCallback(() => {
-    setCurrentIdx((prev) => (prev - 1 + total) % total);
-  }, [total]);
+  const next = useCallback(
+    (e?: React.MouseEvent) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      setCurrentIdx((prev) => (prev + 1) % total);
+    },
+    [total]
+  );
 
-  // Slow auto-sliding when multiple images exist
+  const prev = useCallback(
+    (e?: React.MouseEvent) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      setCurrentIdx((prev) => (prev - 1 + total) % total);
+    },
+    [total]
+  );
+
+  // Slow auto-sliding when multiple images exist and not hovered
   useEffect(() => {
     if (!isMulti || isHovered) return;
-    const timer = setInterval(next, autoSlideInterval);
+    const timer = setInterval(() => {
+      setCurrentIdx((prevIdx) => (prevIdx + 1) % total);
+    }, autoSlideInterval);
     return () => clearInterval(timer);
-  }, [isMulti, isHovered, next, autoSlideInterval]);
+  }, [isMulti, isHovered, total, autoSlideInterval]);
 
   if (!isMulti) {
+    const singleSrc = images[0] || "/images/hero.jpg";
     return (
       <div
-        className={`overflow-hidden relative w-full group ${aspectClass} ${onExpand ? "cursor-pointer" : ""}`}
+        className={`overflow-hidden relative w-full group ${aspectClass} ${onExpand ? "cursor-pointer" : ""} bg-stone-200 dark:bg-stone-800`}
+        {...({ loading: "lazy" } as any)}
         onClick={() => onExpand?.(0)}
       >
+        {/* Blurred placeholder background using CSS filter: blur(20px) while full image loads */}
+        <div
+          className="img-blur-bg absolute inset-0 bg-cover bg-center pointer-events-none transition-opacity duration-500"
+          style={{
+            backgroundImage: `url(${encodeURI(singleSrc)})`,
+            filter: "blur(20px)",
+            WebkitFilter: "blur(20px)",
+            transform: "scale(1.15)",
+          }}
+          data-placeholder="blur"
+          aria-hidden="true"
+        />
         <Image
-          src={images[0] || "/images/hero.jpg"}
+          src={encodeURI(singleSrc)}
           alt={alt}
           fill
-          className="object-cover group-hover:scale-105 transition-transform duration-700"
+          priority={priority}
+          loading={priority ? "eager" : "lazy"}
+          decoding="async"
+          className="relative z-10 object-cover group-hover:scale-105 transition-transform duration-700"
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+          onLoad={(e) => {
+            const sibling = e.currentTarget.previousElementSibling as HTMLElement | null;
+            if (sibling) {
+              sibling.style.opacity = "0";
+              sibling.classList.add("is-loaded");
+            }
+          }}
         />
         {onExpand && (
           <button
             type="button"
-            aria-label="Expand image gallery"
+            aria-label="Click to zoom and inspect room details"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               onExpand(0);
             }}
-            className="absolute top-3 right-3 z-20 h-7 w-7 rounded-full bg-black/60 hover:bg-black/80 text-white/90 border border-white/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-            title="Expand Fullscreen Lightbox"
+            className="absolute top-3 right-3 z-20 px-2.5 py-1 rounded-full bg-black/60 hover:bg-black/80 text-white/90 border border-white/20 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[11px] font-condensed tracking-wider uppercase cursor-pointer"
+            title="Click to zoom & inspect textures in full-screen modal"
           >
-            <Maximize2 className="h-3.5 w-3.5" />
+            <ZoomIn className="h-3.5 w-3.5 text-amber-300" />
+            <span>Zoom In</span>
           </button>
         )}
       </div>
@@ -75,19 +126,37 @@ export const RoomImageSlider = memo(function RoomImageSlider({
 
   return (
     <div
-      className={`overflow-hidden relative w-full select-none group ${aspectClass} ${onExpand ? "cursor-pointer" : ""}`}
+      className={`overflow-hidden relative w-full select-none group ${aspectClass} ${onExpand ? "cursor-pointer" : ""} bg-stone-200 dark:bg-stone-800`}
+      {...({ loading: "lazy" } as any)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onExpand?.(currentIdx)}
     >
-      {/* Slides with slow, graceful crossfade */}
+      {/* Blurred placeholder background using CSS filter: blur(20px) while full image loads */}
+      <div
+        className="img-blur-bg absolute inset-0 bg-cover bg-center pointer-events-none transition-opacity duration-500"
+        style={{
+          backgroundImage: `url(${encodeURI(images[currentIdx] || images[0] || "/images/hero.jpg")})`,
+          filter: "blur(20px)",
+          WebkitFilter: "blur(20px)",
+          transform: "scale(1.15)",
+        }}
+        data-placeholder="blur"
+        aria-hidden="true"
+      />
+
+      {/* Slides with smooth crossfade and zero delay */}
       {images.map((img, idx) => {
         const isActive = idx === currentIdx;
         const safeSrc = encodeURI(img);
+        // Eagerly load if priority is set, or if it's the current slide, or the upcoming next slide
+        const isUpcoming = idx === (currentIdx + 1) % total;
+        const shouldEagerLoad = priority || isActive || isUpcoming;
+
         return (
           <div
             key={img}
-            className={`absolute inset-0 transition-opacity duration-[2000ms] ease-in-out ${
+            className={`absolute inset-0 transition-opacity duration-[1800ms] ease-in-out ${
               isActive ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
             }`}
           >
@@ -95,88 +164,90 @@ export const RoomImageSlider = memo(function RoomImageSlider({
               src={safeSrc}
               alt={`${alt} — Photo ${idx + 1}`}
               fill
+              priority={priority && idx === 0}
+              loading={shouldEagerLoad ? "eager" : "lazy"}
+              decoding="async"
               className={`object-cover transition-transform duration-[6500ms] ease-out ${
                 isActive ? "scale-105" : "scale-100"
               }`}
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-              priority={idx === 0}
+              onLoad={(e) => {
+                if (idx === 0) {
+                  const container = e.currentTarget.closest('[class*="aspect-"]');
+                  const placeholder = container?.querySelector('.img-blur-bg, [data-placeholder]') as HTMLElement | null;
+                  if (placeholder) {
+                    placeholder.style.opacity = "0";
+                    placeholder.classList.add("is-loaded");
+                  }
+                }
+              }}
             />
           </div>
         );
       })}
 
-      {/* Subtle photo counter badge & expand button for suites with multiple views */}
-      <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 pointer-events-auto">
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-condensed uppercase tracking-wider font-semibold bg-black/60 backdrop-blur-sm text-white/90 border border-white/15 pointer-events-none">
-          {currentIdx + 1} / {total} Photos
-        </span>
-        {onExpand && (
-          <button
-            type="button"
-            aria-label="Expand image gallery"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onExpand(currentIdx);
-            }}
-            className="h-6 w-6 rounded-full bg-black/60 hover:bg-black/90 text-white/90 hover:text-white border border-white/20 flex items-center justify-center transition-colors"
-            title="Expand Fullscreen Lightbox"
-          >
-            <Maximize2 className="h-3 w-3" />
-          </button>
-        )}
-      </div>
-
-      {/* Manual Prev / Next Controls (Click stops navigation to room link) */}
-      {showControls && (
+      {/* Interactive Previous / Next Slide Controls */}
+      {showControls && isMulti && (
         <>
           <button
             type="button"
-            aria-label="Previous image"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              prev();
-            }}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-black/50 hover:bg-black/80 text-white/90 border border-white/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+            aria-label="Previous photo"
+            onClick={prev}
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/50 hover:bg-black/80 text-white border border-white/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer shadow-md"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
           <button
             type="button"
-            aria-label="Next image"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              next();
-            }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-black/50 hover:bg-black/80 text-white/90 border border-white/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+            aria-label="Next photo"
+            onClick={next}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/50 hover:bg-black/80 text-white border border-white/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer shadow-md"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
+
+          {/* Dots Indicator & Counter */}
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-sm border border-white/15">
+            {images.map((_, idx) => (
+              <button
+                key={idx}
+                type="button"
+                aria-label={`Jump to photo ${idx + 1}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCurrentIdx(idx);
+                }}
+                className={`transition-all rounded-full cursor-pointer ${
+                  idx === currentIdx
+                    ? "w-4 h-1.5 bg-amber-300"
+                    : "w-1.5 h-1.5 bg-white/50 hover:bg-white/90"
+                }`}
+              />
+            ))}
+          </div>
         </>
       )}
 
-      {/* Slide Indicator Dots */}
-      <div className="absolute bottom-2.5 inset-x-0 z-20 flex items-center justify-center gap-1.5">
-        {images.map((_, idx) => (
+      {/* Expand/zoom button only when onExpand is provided (e.g. room detail view) */}
+      {onExpand && (
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 pointer-events-auto">
           <button
-            key={idx}
             type="button"
-            aria-label={`Go to slide ${idx + 1}`}
+            aria-label="Click to zoom and inspect room details"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              setCurrentIdx(idx);
+              onExpand(currentIdx);
             }}
-            className={`transition-all duration-300 rounded-full ${
-              idx === currentIdx
-                ? "w-5 h-1.5 bg-[var(--accent)]"
-                : "w-1.5 h-1.5 bg-white/70 hover:bg-white"
-            }`}
-          />
-        ))}
-      </div>
+            className="px-2.5 py-1 rounded-full bg-black/60 hover:bg-black/90 text-white/90 hover:text-white border border-white/20 flex items-center gap-1.5 transition-colors text-[11px] font-condensed tracking-wider uppercase cursor-pointer"
+            title="Click to zoom & inspect textures in full-screen modal"
+          >
+            <ZoomIn className="h-3 w-3 text-amber-300" />
+            <span className="hidden sm:inline">Zoom</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 });

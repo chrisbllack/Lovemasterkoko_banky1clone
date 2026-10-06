@@ -9,15 +9,28 @@ interface ThermalReceiptModalProps {
   order: QrOrder | null;
   onClose: () => void;
   elapsedMinutes?: number;
+  autoPrint?: boolean;
+  defaultPaperWidth?: "80mm" | "58mm";
+  autoCloseAfterPrint?: boolean;
 }
 
 export function ThermalReceiptModal({
   order,
   onClose,
   elapsedMinutes = 0,
+  autoPrint = false,
+  defaultPaperWidth = "80mm",
+  autoCloseAfterPrint = false,
 }: ThermalReceiptModalProps) {
-  const [paperWidth, setPaperWidth] = useState<"80mm" | "58mm">("80mm");
+  const [paperWidth, setPaperWidth] = useState<"80mm" | "58mm">(defaultPaperWidth);
   const [copied, setCopied] = useState(false);
+  const [isAutoPrinting, setIsAutoPrinting] = useState(autoPrint);
+
+  useEffect(() => {
+    if (defaultPaperWidth) {
+      setPaperWidth(defaultPaperWidth);
+    }
+  }, [defaultPaperWidth]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -26,6 +39,31 @@ export function ThermalReceiptModal({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
+
+  const handlePrint = () => {
+    if (typeof document !== "undefined") {
+      document.body.classList.add("printing-thermal-slip");
+      window.print();
+      // Remove class shortly after print dialog opens/closes
+      setTimeout(() => {
+        document.body.classList.remove("printing-thermal-slip");
+      }, 500);
+    }
+  };
+
+  useEffect(() => {
+    if (autoPrint && order) {
+      setIsAutoPrinting(true);
+      const timer = setTimeout(() => {
+        handlePrint();
+        setIsAutoPrinting(false);
+        if (autoCloseAfterPrint) {
+          setTimeout(onClose, 1000);
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [autoPrint, order, autoCloseAfterPrint, onClose]);
 
   if (!order) return null;
 
@@ -45,17 +83,6 @@ export function ThermalReceiptModal({
       }) + " WAT";
     } catch {
       return isoString;
-    }
-  };
-
-  const handlePrint = () => {
-    if (typeof document !== "undefined") {
-      document.body.classList.add("printing-thermal-slip");
-      window.print();
-      // Remove class shortly after print dialog opens/closes
-      setTimeout(() => {
-        document.body.classList.remove("printing-thermal-slip");
-      }, 500);
     }
   };
 
@@ -115,6 +142,12 @@ export function ThermalReceiptModal({
             <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300">
               {paperWidth}
             </span>
+            {isAutoPrinting && (
+              <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 animate-pulse flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-ping" />
+                Auto-Printing…
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

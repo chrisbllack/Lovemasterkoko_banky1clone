@@ -1,9 +1,15 @@
 "use client";
+import { usePathname } from "next/navigation";
 import { useTheme } from "@/lib/ThemeContext";
 import { Sun, Moon } from "lucide-react";
 
 export function ThemeToggle() {
+  const pathname = usePathname();
   const { theme, toggleTheme, watTimeString } = useTheme();
+
+  if (pathname?.startsWith("/qr")) {
+    return null;
+  }
 
   const titleText = theme === "light"
     ? `Switch to night mode · Lagos auto-schedule (07:00 PM – 06:59 AM WAT)${watTimeString ? ` · Current: ${watTimeString}` : ""}`

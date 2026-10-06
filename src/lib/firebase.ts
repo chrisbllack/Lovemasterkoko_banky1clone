@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, doc, getDocFromServer } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import firebaseConfigData from "../../firebase-applet-config.json";
 
@@ -15,4 +15,17 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app, firebaseConfigData?.firestoreDatabaseId);
 export const auth = getAuth(app);
+
+// Skill mandatory validation: boot probe to test live connection
+if (typeof window !== "undefined") {
+  (async function testConnection() {
+    try {
+      await getDocFromServer(doc(db, "test", "connection"));
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("the client is offline")) {
+        console.error("Please check your Firebase configuration.");
+      }
+    }
+  })();
+}
 

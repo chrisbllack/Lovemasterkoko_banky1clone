@@ -22,7 +22,6 @@ const GALLERY: GalleryItem[] = [
   // Rooms & Suites
   { src: "/images/signature suite room.jpg", alt: "Signature Suite", category: "Rooms & Suites" },
   { src: "/images/Presidential.jpg", alt: "Presidential Suite master parlor", category: "Rooms & Suites" },
-  { src: "/images/Presidential1.jpg", alt: "Presidential Suite executive lounge", category: "Rooms & Suites" },
   { src: "/images/presidential 17.jpg", alt: "Presidential Suite VIP appointments", category: "Rooms & Suites" },
   { src: "/images/presidential23.jpg", alt: "Presidential Suite stately ambiance", category: "Rooms & Suites" },
   { src: "/images/presidential3.jpg", alt: "Presidential Suite luxury interior", category: "Rooms & Suites" },
@@ -35,18 +34,19 @@ const GALLERY: GalleryItem[] = [
   { src: "/images/Standard room.jpg", alt: "Standard room — Sanctuary bed and mood lighting", category: "Rooms & Suites" },
   { src: "/images/standard.jpg", alt: "Standard room — Contemporary appointments and workstation", category: "Rooms & Suites" },
 
-  // Dining & Bar
-  { src: "/images/dining.jpg", alt: "Fine dining restaurant", category: "Dining & Bar" },
-  { src: "/images/Restaurant 2.jpg", alt: "Restaurant setting", category: "Dining & Bar" },
-  { src: "/images/lounge.jpg", alt: "Lounge area", category: "Dining & Bar" },
+  // Restaurant
+  { src: "/images/dining.jpg", alt: "Fine dining restaurant main hall", category: "Restaurant" },
+  { src: "/images/Restaurant 2.jpg", alt: "Restaurant setting & table service", category: "Restaurant" },
+  { src: "/images/restaurant14.jpg", alt: "Private dining & banqueting setup", category: "Restaurant" },
 
-  // Garden & Outdoor
-  { src: "/images/OpenBar Garden.jpg", alt: "Open-air garden bar", category: "Garden & Outdoor" },
-  { src: "/images/OpenBar Garden 2.jpg", alt: "Garden courtyard", category: "Garden & Outdoor" },
-  { src: "/images/OpenBar Garden 3.jpg", alt: "Private garden area", category: "Garden & Outdoor" },
-  { src: "/images/OpenBar sitout.jpg", alt: "Evening garden sit-out", category: "Garden & Outdoor" },
-  { src: "/images/open air bar sitout.jpg", alt: "Al fresco dining", category: "Garden & Outdoor" },
-  { src: "/images/Ballard Table.jpg", alt: "Billiards & outdoor recreation", category: "Garden & Outdoor" },
+  // The Bar & Lounge
+  { src: "/images/OpenBar Garden.jpg", alt: "Open-air bar & garden terrace", category: "The Bar & Lounge" },
+  { src: "/images/lounge.jpg", alt: "VIP indoor cocktail lounge & spirits bar", category: "The Bar & Lounge" },
+  { src: "/images/Ballard Table.jpg", alt: "Billiards & lounge recreation", category: "The Bar & Lounge" },
+  { src: "/images/OpenBar Garden 2.jpg", alt: "Garden bar evening courtyard", category: "The Bar & Lounge" },
+  { src: "/images/OpenBar Garden 3.jpg", alt: "Open-air bar lounge pavilion", category: "The Bar & Lounge" },
+  { src: "/images/OpenBar sitout.jpg", alt: "Evening garden sit-out", category: "The Bar & Lounge" },
+  { src: "/images/open air bar sitout.jpg", alt: "Open-air bar sitout lounge", category: "The Bar & Lounge" },
 
   // Events & Banqueting
   { src: "/images/BankyHall.jpg", alt: "Banky Hall 300-seat banqueting venue", category: "Events & Banqueting" },
@@ -132,15 +132,36 @@ export default function GalleryPage() {
               <button
                 key={item.src}
                 onClick={() => setLightboxIdx(i)}
-                className="overflow-hidden rounded-2xl border border-[#ece6dd] dark:border-[#2e2b26] group cursor-pointer block w-full text-left shadow-sm aspect-[16/10] relative"
+                className="overflow-hidden rounded-2xl border border-[#ece6dd] dark:border-[#2e2b26] group cursor-pointer block w-full text-left shadow-sm aspect-[16/10] relative bg-stone-200 dark:bg-stone-800"
+                {...({ loading: "lazy" } as any)}
               >
+                {/* Blurred placeholder background using CSS filter: blur(20px) while full image loads */}
+                <div
+                  className="img-blur-bg absolute inset-0 bg-cover bg-center pointer-events-none transition-opacity duration-700"
+                  style={{
+                    backgroundImage: `url(${encodeURI(item.src)})`,
+                    filter: "blur(20px)",
+                    WebkitFilter: "blur(20px)",
+                    transform: "scale(1.15)",
+                  }}
+                  data-placeholder="blur"
+                  aria-hidden="true"
+                />
                 <img
                   src={encodeURI(item.src)}
                   alt={item.alt}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  className="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   loading="lazy"
+                  decoding="async"
+                  onLoad={(e) => {
+                    const sibling = e.currentTarget.previousElementSibling as HTMLElement | null;
+                    if (sibling) {
+                      sibling.style.opacity = "0";
+                      sibling.classList.add("is-loaded");
+                    }
+                  }}
                 />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-all duration-300 flex items-end justify-between p-3 opacity-0 group-hover:opacity-100">
+                <div className="absolute inset-0 z-20 bg-black/0 group-hover:bg-black/35 transition-all duration-300 flex items-end justify-between p-3 opacity-0 group-hover:opacity-100">
                   <span className="text-white text-xs font-condensed uppercase tracking-wider font-medium">{item.category}</span>
                   <span className="text-[var(--accent)] text-xs font-condensed font-medium bg-black/40 px-2 py-0.5 rounded">View</span>
                 </div>

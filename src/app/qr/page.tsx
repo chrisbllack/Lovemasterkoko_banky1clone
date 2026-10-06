@@ -89,6 +89,7 @@ function QrMenuContent() {
   // Cart state
   const [cart, setCart] = useState<Record<string, CartItem>>({});
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [cartBounceTrigger, setCartBounceTrigger] = useState(0);
 
   // Selected item for Customization Modal
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
@@ -187,6 +188,7 @@ function QrMenuContent() {
   // Add / reduce item in cart
   const addToCartSimple = (item: MenuItem) => {
     if (!item.isAvailable) return;
+    setCartBounceTrigger((prev) => prev + 1);
     const key = item.id;
     setCart((prev) => {
       const existing = prev[key];
@@ -210,6 +212,7 @@ function QrMenuContent() {
     notes: string
   ) => {
     if (!item.isAvailable) return;
+    setCartBounceTrigger((prev) => prev + 1);
     const addonsTotal = addons.reduce((acc, a) => acc + a.price, 0);
     const unitPrice = item.price + addonsTotal;
     const addonsKey = addons.map((a) => a.id).sort().join("-");
@@ -359,15 +362,6 @@ function QrMenuContent() {
       <header className="sticky top-0 z-40 bg-[#171614]/95 backdrop-blur-md border-b border-stone-800/80 shadow-lg">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="relative h-11 w-11 rounded-full overflow-hidden border border-[#ffbf00]/40 bg-[#222] p-1 flex-shrink-0 shadow">
-              <Image
-                src="/images/Banky Hotel & Suites Main Logo 1.png"
-                alt="Banky Hotel Logo"
-                fill
-                className="object-contain p-0.5"
-                priority
-              />
-            </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-display text-base sm:text-lg text-white font-medium tracking-wide leading-tight">
@@ -885,58 +879,108 @@ function QrMenuContent() {
         </div>
       </main>
 
-      {/* ── 7. Floating Bottom "View Order" Bar ── */}
+      {/* ── 7. Floating Bottom "View Order" Bar with Subtle Bounce Animation ── */}
       <AnimatePresence>
         {totalItemsCount > 0 && !isCartOpen && (
           <motion.div
-            initial={{ y: 80, opacity: 0 }}
+            initial={{ y: 90, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 80, opacity: 0 }}
+            exit={{ y: 90, opacity: 0 }}
             transition={{ type: "spring", stiffness: 350, damping: 25 }}
-            className="fixed bottom-4 inset-x-0 z-50 px-4 max-w-2xl mx-auto"
+            className="fixed bottom-4 inset-x-0 z-40 px-4 max-w-2xl mx-auto pointer-events-none"
           >
-            <button
+            <motion.button
+              key={cartBounceTrigger}
+              animate={
+                cartBounceTrigger > 0
+                  ? {
+                      scale: [1, 1.055, 0.98, 1.025, 1],
+                      y: [0, -8, 2, -2, 0],
+                    }
+                  : { scale: 1, y: 0 }
+              }
+              transition={{
+                duration: 0.48,
+                ease: [0.34, 1.56, 0.64, 1],
+              }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => setIsCartOpen(true)}
-              className="w-full h-14 bg-gradient-to-r from-[#ffbf00] via-[#ffc42e] to-[#ffbf00] text-white rounded-2xl px-5 flex items-center justify-between shadow-2xl shadow-black/80 border border-white/20 active:scale-[0.98] transition-transform"
+              className="w-full h-14 bg-gradient-to-r from-[#ffbf00] via-[#ffc73a] to-[#ffbf00] text-stone-950 font-medium rounded-2xl px-5 flex items-center justify-between shadow-2xl shadow-black/80 border border-white/30 pointer-events-auto cursor-pointer select-none"
             >
               <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-black/30 flex items-center justify-center font-mono font-bold text-xs">
+                <motion.div
+                  key={totalItemsCount}
+                  initial={{ scale: 0.7 }}
+                  animate={{ scale: [0.7, 1.25, 1] }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                  className="h-8 w-8 rounded-full bg-black/85 text-amber-300 border border-amber-300/40 flex items-center justify-center font-mono font-bold text-xs shadow-inner"
+                >
                   {totalItemsCount}
-                </div>
+                </motion.div>
                 <div className="text-left">
-                  <span className="font-semibold text-sm tracking-wide block leading-tight">
+                  <span className="font-semibold text-sm tracking-wide block leading-tight text-stone-950">
                     View Your Order
                   </span>
-                  <span className="text-[11px] text-white/80">
+                  <span className="text-[11px] font-medium text-stone-800">
                     Delivering to {roomOrTable}
                   </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="font-display font-bold text-base tracking-tight">
+              <div className="flex items-center gap-2 text-stone-950 font-bold">
+                <span className="font-display text-base tracking-tight">
                   {formatNaira(totalAmount)}
                 </span>
                 <ChevronRight className="h-4 w-4" />
               </div>
-            </button>
+            </motion.button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── 8. Slide-Up Checkout Drawer / Cart Modal ── */}
+      {/* ── 8. Slide-Up Checkout Drawer / Cart Modal with Dimmed Overlay ── */}
       <AnimatePresence>
         {isCartOpen && (
-          <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/80 backdrop-blur-sm">
-            <div className="flex-1" onClick={() => setIsCartOpen(false)} />
+          <motion.div
+            key="cart-drawer-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.28, ease: "easeOut" }}
+            className="fixed inset-0 z-50 flex flex-col justify-end bg-black/75 backdrop-blur-sm"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setIsCartOpen(false);
+            }}
+          >
+            {/* Clickable dimmed background overlay area */}
+            <div
+              className="flex-1 w-full cursor-pointer"
+              onClick={() => setIsCartOpen(false)}
+              aria-label="Close cart drawer"
+            />
 
             <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 28, stiffness: 300 }}
-              className="bg-[#171614] border-t border-stone-800 rounded-t-3xl max-w-2xl w-full mx-auto max-h-[88vh] flex flex-col shadow-2xl overflow-hidden"
+              key="cart-drawer-panel"
+              initial={{ y: "100%", opacity: 0.95 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0.95 }}
+              transition={{
+                type: "spring",
+                damping: 32,
+                stiffness: 330,
+                mass: 0.85,
+              }}
+              className="bg-[#171614] border-t border-stone-800 rounded-t-3xl max-w-2xl w-full mx-auto max-h-[88vh] flex flex-col shadow-[0_-12px_45px_rgba(0,0,0,0.85)] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
             >
+              {/* Pull handle indicator */}
+              <div
+                className="pt-2.5 pb-1 flex justify-center cursor-pointer"
+                onClick={() => setIsCartOpen(false)}
+              >
+                <div className="w-10 h-1 rounded-full bg-stone-700/80 hover:bg-stone-500 transition-colors" />
+              </div>
+
               {/* Drawer header */}
               <div className="p-4 border-b border-stone-800 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1154,7 +1198,7 @@ function QrMenuContent() {
                 </button>
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 

@@ -2,16 +2,29 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, CalendarRange, BedDouble, UtensilsCrossed, BellRing, Settings, Menu, X, Image as ImageIcon } from "lucide-react";
+import {
+  LayoutDashboard,
+  CalendarRange,
+  BedDouble,
+  UtensilsCrossed,
+  BellRing,
+  Settings,
+  Menu,
+  X,
+  Image as ImageIcon,
+  ReceiptText,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/admin", label: "Overview", icon: LayoutDashboard },
   { to: "/admin/reservations", label: "Reservations", icon: CalendarRange },
+  { to: "/admin/transactions", label: "Transaction Audit", icon: ReceiptText },
   { to: "/admin/rooms", label: "Rooms", icon: BedDouble },
   { to: "/admin/media", label: "Room Photos & Media", icon: ImageIcon },
   { to: "/admin/qr-orders", label: "Kitchen / Bar Orders", icon: BellRing },
   { to: "/admin/qr-menu", label: "QR Menu & Stock", icon: UtensilsCrossed },
+  { to: "/admin/settings", label: "Payment & Settings", icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

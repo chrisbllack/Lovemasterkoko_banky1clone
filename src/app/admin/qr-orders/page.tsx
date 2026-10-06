@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import {
   Utensils,
   Clock,
@@ -15,6 +16,10 @@ import {
   Printer,
   AlertTriangle,
   Flame,
+  Sliders,
+  Download,
+  FileSpreadsheet,
+  X,
 } from "lucide-react";
 import { QrOrder, OrderStatus } from "@/lib/qr-menu/types";
 import {
@@ -24,8 +29,10 @@ import {
   formatNaira,
 } from "@/lib/qr-menu/store";
 import { ThermalReceiptModal } from "@/components/qr/ThermalReceiptModal";
+import { usePaymentSettings } from "@/lib/settings/usePaymentSettings";
 
 export default function AdminQrOrdersPage() {
+  const { thermalSettings, toggleAutoPrintThermal } = usePaymentSettings();
   const [orders, setOrders] = useState<QrOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -33,6 +40,7 @@ export default function AdminQrOrdersPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [currentTime, setCurrentTime] = useState<number>(Date.now());
   const [receiptModalOrder, setReceiptModalOrder] = useState<QrOrder | null>(null);
+  const [autoPrintModal, setAutoPrintModal] = useState<boolean>(false);
   const previousOrderCountRef = useRef<number>(0);
 
   // Live timer interval to keep elapsed times accurate without reloading
@@ -46,13 +54,25 @@ export default function AdminQrOrdersPage() {
   // Subscribe to real-time orders
   useEffect(() => {
     const unsub = subscribeOrders((newOrders) => {
-      // If there are more orders than before, play sound chime
+      // If there are more orders than before, play sound chime & auto-print if configured for incoming
       if (
         previousOrderCountRef.current > 0 &&
-        newOrders.length > previousOrderCountRef.current &&
-        soundEnabled
+        newOrders.length > previousOrderCountRef.current
       ) {
-        playOrderChime();
+        if (soundEnabled) {
+          playOrderChime();
+        }
+        // Auto-print thermal slip upon incoming new order if enabled
+        if (
+          thermalSettings.autoPrintOnConfirmation &&
+          (thermalSettings.triggerOn === "incoming" || thermalSettings.triggerOn === "both")
+        ) {
+          const newestOrder = newOrders[0];
+          if (newestOrder) {
+            setReceiptModalOrder(newestOrder);
+            setAutoPrintModal(true);
+          }
+        }
       }
       previousOrderCountRef.current = newOrders.length;
       setOrders(newOrders);
@@ -60,7 +80,7 @@ export default function AdminQrOrdersPage() {
     });
 
     return () => unsub();
-  }, [soundEnabled]);
+  }, [soundEnabled, thermalSettings.autoPrintOnConfirmation, thermalSettings.triggerOn]);
 
   // Calculate elapsed minutes from order creation
   const getElapsedMinutes = (isoString: string) => {
@@ -106,6 +126,21 @@ export default function AdminQrOrdersPage() {
 
   const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     await updateOrderStatusInDb(orderId, newStatus);
+    // If order was confirmed (started preparation), automatically dispatch thermal receipt if enabled
+    if (
+      newStatus === "in_progress" &&
+      thermalSettings.autoPrintOnConfirmation &&
+      (thermalSettings.triggerOn === "confirmation" || thermalSettings.triggerOn === "both")
+    ) {
+      const order = orders.find((o) => o.id === orderId);
+      if (order) {
+        setReceiptModalOrder(order);
+        setAutoPrintModal(true);
+        if (soundEnabled && thermalSettings.chimeOnPrint) {
+          playOrderChime();
+        }
+      }
+    }
   };
 
   const formatTimeAgo = (isoString: string) => {
@@ -118,6 +153,111 @@ export default function AdminQrOrdersPage() {
       return `${diffHours}h ago`;
     } catch {
       return "Recent";
+    }
+  };
+
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
+  const [exportingCsv, setExportingCsv] = useState<boolean>(false);
+
+  const handleExportCsv = () => {
+    const listToExport = filteredOrders.length > 0 ? filteredOrders : orders;
+    if (listToExport.length === 0) return;
+    setExportingCsv(true);
+
+    try {
+      const headers = [
+        "Order Number",
+        "Created Date & Time (WAT / Lagos)",
+        "Status",
+        "Order Location Type",
+        "Room or Table",
+        "Guest Name",
+        "Guest Phone",
+        "Items Breakdown",
+        "Total Items Count",
+        "Total Amount (NGN)",
+        "Special Instructions / Notes",
+        "Elapsed Time (Minutes)",
+      ];
+
+      const escapeCsv = (val: unknown) => {
+        if (val === null || val === undefined) return '""';
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      };
+
+      const rows = listToExport.map((order) => {
+        const formattedDate = new Date(order.createdAt).toLocaleString("en-GB", {
+          timeZone: "Africa/Lagos",
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+
+        const itemsBreakdown = order.items
+          .map(
+            (item) =>
+              `${item.quantity}x ${item.title} (₦${item.price.toLocaleString("en-NG")})${
+                item.notes ? ` [Note: ${item.notes}]` : ""
+              }`
+          )
+          .join("; ");
+
+        const statusLabel =
+          order.status === "pending"
+            ? "Pending Confirmation"
+            : order.status === "in_progress"
+            ? "In Preparation"
+            : order.status === "fulfilled"
+            ? "Fulfilled"
+            : "Cancelled";
+
+        const typeLabel =
+          order.orderType === "room"
+            ? "In-Room Dining"
+            : order.orderType === "poolside_garden"
+            ? "Poolside / Garden"
+            : "Restaurant Table";
+
+        const elapsed = getElapsedMinutes(order.createdAt);
+
+        return [
+          escapeCsv(order.orderNumber),
+          escapeCsv(formattedDate),
+          escapeCsv(statusLabel),
+          escapeCsv(typeLabel),
+          escapeCsv(order.roomOrTable),
+          escapeCsv(order.guestName || "Walk-in Guest"),
+          escapeCsv(order.guestPhone || "N/A"),
+          escapeCsv(itemsBreakdown),
+          escapeCsv(order.totalItems),
+          escapeCsv(order.totalAmount),
+          escapeCsv(order.specialInstructions || "None"),
+          escapeCsv(elapsed),
+        ].join(",");
+      });
+
+      const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `banky-kitchen-bar-orders-audit-${dateStr}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setExportMessage(`Audit report with ${listToExport.length} orders downloaded successfully!`);
+      setTimeout(() => setExportMessage(null), 5000);
+    } catch (err) {
+      console.error("Failed to generate CSV export:", err);
+    } finally {
+      setExportingCsv(false);
     }
   };
 
@@ -140,13 +280,46 @@ export default function AdminQrOrdersPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          {/* Quick Auto-Print Thermal Receipt Toggle Button */}
+          <button
+            onClick={() => toggleAutoPrintThermal()}
+            className={`px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-2 border transition-all cursor-pointer ${
+              thermalSettings.autoPrintOnConfirmation
+                ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100"
+                : "bg-stone-100 dark:bg-stone-800 text-stone-500 border-stone-300 dark:border-stone-700 hover:bg-stone-200"
+            }`}
+            title={`Thermal Receipt Auto-Print: ${thermalSettings.autoPrintOnConfirmation ? "Enabled" : "Disabled"}. Click to toggle.`}
+          >
+            <Printer className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <span>Auto-Print: {thermalSettings.autoPrintOnConfirmation ? `ON (${thermalSettings.paperWidth})` : "OFF"}</span>
+          </button>
+
+          {/* CSV Export Button for Audit Reports */}
+          <button
+            onClick={handleExportCsv}
+            disabled={orders.length === 0 || exportingCsv}
+            className="px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-2 border bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700 transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+            title="Download CSV report of kitchen & bar orders for auditing"
+          >
+            <Download className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <span>Export CSV {filteredOrders.length > 0 ? `(${filteredOrders.length})` : ""}</span>
+          </button>
+
+          <Link
+            href="/admin/settings"
+            className="p-2 text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700 transition-colors"
+            title="Configure Thermal Printer & POS Settings"
+          >
+            <Sliders className="h-4 w-4" />
+          </Link>
+
           <button
             onClick={() => {
               setSoundEnabled(!soundEnabled);
               if (!soundEnabled) playOrderChime();
             }}
-            className={`px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-2 border transition-colors ${
+            className={`px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-2 border transition-colors cursor-pointer ${
               soundEnabled
                 ? "bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-100"
                 : "bg-stone-100 dark:bg-stone-800 text-stone-500 border-stone-300 dark:border-stone-700 hover:bg-stone-200"
@@ -158,6 +331,22 @@ export default function AdminQrOrdersPage() {
           </button>
         </div>
       </div>
+
+      {/* ── CSV Export Success Notification ── */}
+      {exportMessage && (
+        <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 flex items-center justify-between text-xs sm:text-sm animate-fadeIn shadow-sm">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>{exportMessage}</span>
+          </div>
+          <button
+            onClick={() => setExportMessage(null)}
+            className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-100"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* ── Visual Alert Banner for Orders Exceeding 30 Minutes ── */}
       {overdueCount > 0 && (
@@ -569,8 +758,14 @@ export default function AdminQrOrdersPage() {
       {/* ── Printer-Friendly Thermal Receipt Modal ── */}
       <ThermalReceiptModal
         order={receiptModalOrder}
-        onClose={() => setReceiptModalOrder(null)}
+        onClose={() => {
+          setReceiptModalOrder(null);
+          setAutoPrintModal(false);
+        }}
         elapsedMinutes={receiptModalOrder ? getElapsedMinutes(receiptModalOrder.createdAt) : 0}
+        autoPrint={autoPrintModal}
+        defaultPaperWidth={thermalSettings.paperWidth}
+        autoCloseAfterPrint={thermalSettings.autoCloseAfterPrint}
       />
     </div>
   );

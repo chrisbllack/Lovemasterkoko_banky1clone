@@ -1,14 +1,37 @@
 "use client";
+
+import { useEffect } from "react";
 import Link from "next/link";
 import { ROOMS, naira } from "@/lib/hotel";
 import { ArrowRight } from "lucide-react";
 import { RoomImageSlider } from "@/components/common/RoomImageSlider";
+import { useRoomPreloader, preloadAllRoomsOnIdle } from "@/lib/image-preloader";
 
 export default function RoomsPage() {
+  const { getPreloadHandlers } = useRoomPreloader();
+
+  // Progressively warm up all room images during idle time
+  useEffect(() => {
+    const cancelIdle = preloadAllRoomsOnIdle(ROOMS, 600);
+    return () => {
+      cancelIdle?.();
+    };
+  }, []);
+
   return (
     <>
-      <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 bg-[#1b1b1b] dark:bg-[#1a1a1d]">
-        <img src="/images/Hotel Lobby.jpg" alt="" className="absolute inset-0 w-full h-full object-cover opacity-30" />
+      <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 bg-[#1b1b1b] dark:bg-[#1a1a1d] overflow-hidden">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          className="absolute inset-0 w-full h-full object-cover opacity-35 pointer-events-none"
+        >
+          <source src="/videos/hero.mp4" type="video/mp4" />
+          <source src="/videos/executive-room.mp4" type="video/mp4" />
+        </video>
         <div className="absolute inset-0 bg-gradient-to-t from-[#1b1b1b] dark:from-[#202023] via-[#1b1b1b]/60 to-[#1b1b1b]/80" />
         <div className="container-x relative z-10 text-center">
           <span className="eyebrow text-[var(--accent)] block mb-3">Luxury Accommodations</span>
@@ -20,7 +43,12 @@ export default function RoomsPage() {
         <div className="container-x">
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {ROOMS.map((room) => (
-              <Link key={room.slug} href={`/rooms/${room.slug}`} className="group block border border-[#ece6dd] dark:border-[#3a3a42] bg-white dark:bg-[#28282d] overflow-hidden rounded-2xl hover:shadow-lg transition-all duration-300 hover:border-[var(--accent)]">
+              <Link
+                key={room.slug}
+                href={`/rooms/${room.slug}`}
+                {...getPreloadHandlers(room.slug)}
+                className="group block border border-[#ece6dd] dark:border-[#3a3a42] bg-white dark:bg-[#28282d] overflow-hidden rounded-2xl hover:shadow-lg transition-all duration-300 hover:border-[var(--accent)]"
+              >
                 <RoomImageSlider
                   images={room.images && room.images.length > 0 ? room.images : [room.image]}
                   alt={room.name}
