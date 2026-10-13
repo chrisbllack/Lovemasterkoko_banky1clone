@@ -16,18 +16,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  quality:
-    name: Lint & production build
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: '1.4.0'
+      - name: Cache Bun packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('package.json', 'bun.lock', 'bun.lockb') }}
       - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Lint
-        run: bun run lint
+        run: bun install --no-save
+      - run: bun run lint
+
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+      - name: Cache Bun packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('package.json', 'bun.lock', 'bun.lockb') }}
+      - name: Install dependencies
+        run: bun install --no-save
       - name: Production build
         run: bun run build
 
@@ -38,9 +58,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: '1.4.0'
+      - name: Cache Bun packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('package.json', 'bun.lock', 'bun.lockb') }}
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --no-save
       - name: Audit dependencies (fails on high/critical)
         run: bun audit --audit-level=high
 
@@ -76,6 +101,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: '1.4.0'
+      - name: Cache Bun packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('package.json', 'bun.lock', 'bun.lockb') }}
+      - name: Install dependencies
+        run: bun install --no-save
       - name: Run project security rules
         run: bun run scripts/security-rules.mjs
