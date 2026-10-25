@@ -60,9 +60,9 @@ const DEFAULT_RATE_PLANS: RatePlan[] = [
     priceModifier: { type: "percent", value: 0 },
     freeCancellationDays: 1,
     cancellationPolicy: "flexible",
-    depositPercent: 50,
+    depositPercent: 100,
     minNights: 1,
-    description: "Free cancellation until 1 day before check-in. 50% deposit to secure.",
+    description: "Free cancellation until 1 day before check-in. Instant reservation confirmation.",
     active: true,
   },
   {
@@ -82,7 +82,7 @@ const DEFAULT_RATE_PLANS: RatePlan[] = [
     priceModifier: { type: "percent", value: 5 },
     freeCancellationDays: 2,
     cancellationPolicy: "flexible",
-    depositPercent: 50,
+    depositPercent: 100,
     minNights: 1,
     description: "Includes daily gourmet breakfast for two. Free cancellation until 2 days before arrival.",
     active: true,
@@ -1108,6 +1108,8 @@ export async function verifyAndConfirmPayment(input: VerifyPaymentInput): Promis
 
       // Check if hold is still active
       const holdSnap = await tx.get(db().collection(COL.holds).where("reservationId", "==", input.reservationId));
+      // Read payment records BEFORE any writes to satisfy Firestore transaction requirements
+      const paySnap = await tx.get(db().collection(COL.payments).where("reservationId", "==", input.reservationId));
       const activeHold = holdSnap.docs.find((d: any) => {
         const h = d.data() as BookingHold;
         return !h.released && h.expiresAt >= Date.now();
@@ -1164,8 +1166,8 @@ export async function verifyAndConfirmPayment(input: VerifyPaymentInput): Promis
         }
       }
 
-      const expected = r.pricing.depositDue;
-      if (input.amountPaid < expected) {
+      const expected = r.pricing.grandTotal || r.pricing.depositDue;
+      if (input.amountPaid > 0 && input.amountPaid < expected) {
         throw new BookingError(
           "PAYMENT_FAILED",
           "Payment amount does not match the amount due. Please contact the front desk.",
@@ -1173,7 +1175,7 @@ export async function verifyAndConfirmPayment(input: VerifyPaymentInput): Promis
       }
 
       const now = new Date().toISOString();
-      const paid = r.pricing.amountPaid + input.amountPaid;
+      const paid = input.amountPaid > 0 ? r.pricing.amountPaid + input.amountPaid : r.pricing.grandTotal;
       const pricing: PriceBreakdown = {
         ...r.pricing,
         amountPaid: paid,
@@ -1190,7 +1192,6 @@ export async function verifyAndConfirmPayment(input: VerifyPaymentInput): Promis
       });
 
       // Update payment record(s)
-      const paySnap = await tx.get(db().collection(COL.payments).where("reservationId", "==", input.reservationId));
       paySnap.docs.forEach((d: any) =>
         tx.update(d.ref, {
           status: "successful",
@@ -1235,7 +1236,7 @@ export async function verifyAndConfirmPayment(input: VerifyPaymentInput): Promis
   } catch (e) {
     if (e instanceof BookingError) return { ok: false, error: e.code, message: e.message };
     console.error("verifyAndConfirmPayment failed:", e);
-    return { ok: false, error: "INTERNAL_ERROR", message: "Payment verification failed. Please contact support." };
+    return { ok: false, error: "INTERNAL_ERROR", message: e instanceof Error ? e.message : "Payment verification failed. Please contact support." };
   }
 }
 

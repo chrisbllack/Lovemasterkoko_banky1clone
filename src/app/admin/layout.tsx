@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   CalendarRange,
   BedDouble,
-  UtensilsCrossed,
   BellRing,
   Settings,
   Menu,
@@ -23,7 +22,6 @@ const NAV = [
   { to: "/admin/rooms", label: "Rooms", icon: BedDouble },
   { to: "/admin/media", label: "Room Photos & Media", icon: ImageIcon },
   { to: "/admin/qr-orders", label: "Kitchen / Bar Orders", icon: BellRing },
-  { to: "/admin/qr-menu", label: "QR Menu & Stock", icon: UtensilsCrossed },
   { to: "/admin/settings", label: "Payment & Settings", icon: Settings },
 ];
 

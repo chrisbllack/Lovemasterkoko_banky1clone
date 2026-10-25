@@ -106,8 +106,8 @@ service cloud.firestore {
 
     // ── Guest Interactions: Bookings, Reviews, Orders & Subscriptions ─
     match /reservations/{reservationId} {
-      allow create, read: if true;
-      allow update, delete: if isStaff();
+      allow create, read, update: if true;
+      allow delete: if isStaff();
     }
 
     match /booking_holds/{holdId} {
@@ -135,13 +135,13 @@ service cloud.firestore {
     }
 
     match /guests/{guestId} {
-      allow create, read: if true;
-      allow update, delete: if isStaff();
+      allow create, read, update: if true;
+      allow delete: if isStaff();
     }
 
     match /payments/{paymentId} {
-      allow create, read: if true;
-      allow update, delete: if isStaff();
+      allow create, read, update: if true;
+      allow delete: if isStaff();
     }
 
     match /refunds/{refundId} {

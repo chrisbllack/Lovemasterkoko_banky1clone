@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     await refreshHoldForReservation(reservation.id, 20 * 60 * 1000);
   }
 
-  const amount = reservation.pricing.depositDue;
+  const amount = reservation.pricing.grandTotal || reservation.pricing.depositDue;
   if (amount <= 0) return jsonError("VALIDATION_ERROR", "Nothing to pay for this reservation.");
 
   const origin = body.origin || new URL(req.url).origin;

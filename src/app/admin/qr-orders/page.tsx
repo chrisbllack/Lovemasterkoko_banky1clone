@@ -20,6 +20,10 @@ import {
   Download,
   FileSpreadsheet,
   X,
+  ListChecks,
+  CheckSquare,
+  Square,
+  Check,
 } from "lucide-react";
 import { QrOrder, OrderStatus } from "@/lib/qr-menu/types";
 import {
@@ -41,6 +45,9 @@ export default function AdminQrOrdersPage() {
   const [currentTime, setCurrentTime] = useState<number>(Date.now());
   const [receiptModalOrder, setReceiptModalOrder] = useState<QrOrder | null>(null);
   const [autoPrintModal, setAutoPrintModal] = useState<boolean>(false);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [isBulkUpdating, setIsBulkUpdating] = useState<boolean>(false);
+  const [bulkFeedback, setBulkFeedback] = useState<string | null>(null);
   const previousOrderCountRef = useRef<number>(0);
 
   // Live timer interval to keep elapsed times accurate without reloading
@@ -140,6 +147,55 @@ export default function AdminQrOrdersPage() {
           playOrderChime();
         }
       }
+    }
+  };
+
+  // Bulk actions handlers
+  const toggleSelectOrder = (orderId: string) => {
+    setSelectedOrderIds((prev) =>
+      prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]
+    );
+  };
+
+  const visibleOrderIds = filteredOrders.map((o) => o.id);
+  const isAllVisibleSelected =
+    visibleOrderIds.length > 0 && visibleOrderIds.every((id) => selectedOrderIds.includes(id));
+  const isSomeVisibleSelected =
+    visibleOrderIds.some((id) => selectedOrderIds.includes(id)) && !isAllVisibleSelected;
+
+  const toggleSelectAllVisible = () => {
+    if (isAllVisibleSelected) {
+      setSelectedOrderIds((prev) => prev.filter((id) => !visibleOrderIds.includes(id)));
+    } else {
+      setSelectedOrderIds((prev) => Array.from(new Set([...prev, ...visibleOrderIds])));
+    }
+  };
+
+  const handleBulkStatusChange = async (targetStatus: OrderStatus) => {
+    if (selectedOrderIds.length === 0 || isBulkUpdating) return;
+    setIsBulkUpdating(true);
+    try {
+      const targetIds = [...selectedOrderIds];
+      await Promise.all(
+        targetIds.map((id) => updateOrderStatusInDb(id, targetStatus))
+      );
+      const labelMap: Record<OrderStatus, string> = {
+        pending: "Pending Queue",
+        in_progress: "In Progress",
+        fulfilled: "Fulfilled",
+        cancelled: "Cancelled",
+      };
+      setBulkFeedback(
+        `Updated ${targetIds.length} order${targetIds.length > 1 ? "s" : ""} to "${labelMap[targetStatus]}".`
+      );
+      setSelectedOrderIds([]);
+      setTimeout(() => setBulkFeedback(null), 4000);
+    } catch (err) {
+      console.error("Bulk update error:", err);
+      setBulkFeedback("Failed to update some orders. Please try again.");
+      setTimeout(() => setBulkFeedback(null), 4000);
+    } finally {
+      setIsBulkUpdating(false);
     }
   };
 
@@ -522,6 +578,107 @@ export default function AdminQrOrdersPage() {
         </div>
       </div>
 
+      {/* ── Bulk Action Notification Banner ── */}
+      {bulkFeedback && (
+        <div className="p-3.5 rounded-xl bg-stone-900 text-white dark:bg-amber-950 dark:text-amber-100 border border-stone-700 dark:border-amber-700 flex items-center justify-between text-xs sm:text-sm animate-fadeIn shadow-lg">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+            <span>{bulkFeedback}</span>
+          </div>
+          <button
+            onClick={() => setBulkFeedback(null)}
+            className="text-stone-400 hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ── Bulk Selection Toolbar ── */}
+      {filteredOrders.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-stone-100 dark:bg-stone-900/60 rounded-xl border border-stone-200 dark:border-stone-800 text-xs">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 font-medium text-stone-700 dark:text-stone-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isAllVisibleSelected}
+                ref={(input) => {
+                  if (input) {
+                    input.indeterminate = isSomeVisibleSelected;
+                  }
+                }}
+                onChange={toggleSelectAllVisible}
+                className="h-4 w-4 rounded border-stone-300 dark:border-stone-600 text-stone-900 focus:ring-stone-500 cursor-pointer"
+              />
+              <span>
+                {isAllVisibleSelected
+                  ? `Deselect All (${filteredOrders.length})`
+                  : `Select All (${filteredOrders.length})`}
+              </span>
+            </label>
+
+            {selectedOrderIds.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 text-[11px] font-semibold">
+                {selectedOrderIds.length} selected
+              </span>
+            )}
+          </div>
+
+          {selectedOrderIds.length > 0 ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-stone-500 text-[11px] font-medium hidden sm:inline">Bulk Action:</span>
+              <button
+                disabled={isBulkUpdating}
+                onClick={() => handleBulkStatusChange("fulfilled")}
+                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                title="Mark all selected orders as Fulfilled"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>Set Fulfilled</span>
+              </button>
+              <button
+                disabled={isBulkUpdating}
+                onClick={() => handleBulkStatusChange("in_progress")}
+                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                title="Mark all selected orders as In Progress"
+              >
+                <Clock className="h-3.5 w-3.5" />
+                <span>In Progress</span>
+              </button>
+              <button
+                disabled={isBulkUpdating}
+                onClick={() => handleBulkStatusChange("pending")}
+                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                title="Set all selected orders to Pending Queue"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span>Pending</span>
+              </button>
+              <button
+                disabled={isBulkUpdating}
+                onClick={() => handleBulkStatusChange("cancelled")}
+                className="px-3 py-1.5 rounded-lg bg-stone-200 dark:bg-stone-800 hover:bg-red-100 hover:text-red-700 text-stone-700 dark:text-stone-300 font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                title="Cancel all selected orders"
+              >
+                <X className="h-3.5 w-3.5" />
+                <span>Cancel</span>
+              </button>
+              <button
+                disabled={isBulkUpdating}
+                onClick={() => setSelectedOrderIds([])}
+                className="text-stone-500 hover:text-stone-900 dark:hover:text-stone-200 px-2 py-1 text-xs underline cursor-pointer"
+              >
+                Clear
+              </button>
+            </div>
+          ) : (
+            <span className="text-stone-400 text-[11px] italic">
+              Select multiple orders above to perform batch kitchen actions
+            </span>
+          )}
+        </div>
+      )}
+
       {/* ── Live Orders List ── */}
       {loading ? (
         <div className="p-12 text-center text-stone-500 text-sm">
@@ -549,12 +706,15 @@ export default function AdminQrOrdersPage() {
             const elapsedMins = getElapsedMinutes(order.createdAt);
             const isOverdue = (isPending || isInProgress) && elapsedMins >= 30;
             const isApproaching = (isPending || isInProgress) && elapsedMins >= 20 && elapsedMins < 30;
+            const isSelected = selectedOrderIds.includes(order.id);
 
             return (
               <div
                 key={order.id}
                 className={`bg-white dark:bg-[#1a1815] rounded-2xl border transition-all duration-200 shadow-sm flex flex-col justify-between overflow-hidden ${
-                  isOverdue
+                  isSelected
+                    ? "ring-2 ring-stone-900 dark:ring-amber-400 border-stone-900 dark:border-amber-400 shadow-md"
+                    : isOverdue
                     ? "border-red-500 ring-2 ring-red-500/25 shadow-md dark:border-red-600"
                     : isPending
                     ? "border-amber-300 dark:border-amber-700/60 ring-1 ring-amber-400/20"
@@ -591,23 +751,36 @@ export default function AdminQrOrdersPage() {
 
                 {/* Header bar */}
                 <div className="p-4 border-b border-stone-100 dark:border-stone-800/60 bg-stone-50/70 dark:bg-stone-900/40 flex items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-stone-900 dark:text-white">
-                        {order.orderNumber}
-                      </span>
-                      <span className="text-[10px] text-stone-400 font-mono">
-                        {formatTimeAgo(order.createdAt)}
-                      </span>
+                  <div className="flex items-start gap-2.5">
+                    {/* Bulk Action Checkbox */}
+                    <div className="pt-0.5">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectOrder(order.id)}
+                        className="h-4 w-4 rounded border-stone-300 dark:border-stone-600 text-stone-900 focus:ring-stone-500 cursor-pointer"
+                        title="Select order for bulk action"
+                      />
                     </div>
 
-                    <div className="mt-1 flex items-center gap-1.5">
-                      <span className="inline-block px-2 py-0.5 rounded-md bg-stone-900 dark:bg-white text-white dark:text-stone-900 font-semibold text-xs tracking-wide">
-                        {order.roomOrTable}
-                      </span>
-                      <span className="text-[10px] uppercase tracking-wider text-stone-500 dark:text-stone-400 font-mono">
-                        {order.orderType}
-                      </span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-stone-900 dark:text-white">
+                          {order.orderNumber}
+                        </span>
+                        <span className="text-[10px] text-stone-400 font-mono">
+                          {formatTimeAgo(order.createdAt)}
+                        </span>
+                      </div>
+
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <span className="inline-block px-2 py-0.5 rounded-md bg-stone-900 dark:bg-white text-white dark:text-stone-900 font-semibold text-xs tracking-wide">
+                          {order.roomOrTable}
+                        </span>
+                        <span className="text-[10px] uppercase tracking-wider text-stone-500 dark:text-stone-400 font-mono">
+                          {order.orderType}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -752,6 +925,63 @@ export default function AdminQrOrdersPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Sticky Bottom Bulk Action Bar ── */}
+      {selectedOrderIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-3xl bg-stone-900/95 dark:bg-stone-950/95 backdrop-blur-md text-white border border-stone-700/80 rounded-2xl shadow-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+            <div className="flex items-center gap-2">
+              <span className="h-6 px-2.5 rounded-full bg-amber-500 text-stone-950 text-xs font-bold flex items-center justify-center">
+                {selectedOrderIds.length}
+              </span>
+              <span className="text-xs sm:text-sm font-semibold">
+                Order{selectedOrderIds.length > 1 ? "s" : ""} Selected
+              </span>
+            </div>
+            <button
+              onClick={() => setSelectedOrderIds([])}
+              className="text-xs text-stone-400 hover:text-white underline cursor-pointer"
+            >
+              Deselect All
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+            <button
+              disabled={isBulkUpdating}
+              onClick={() => handleBulkStatusChange("fulfilled")}
+              className="flex-1 sm:flex-none px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              <span>Mark Fulfilled</span>
+            </button>
+            <button
+              disabled={isBulkUpdating}
+              onClick={() => handleBulkStatusChange("in_progress")}
+              className="flex-1 sm:flex-none px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Clock className="h-4 w-4" />
+              <span>In Progress</span>
+            </button>
+            <button
+              disabled={isBulkUpdating}
+              onClick={() => handleBulkStatusChange("pending")}
+              className="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span>Pending</span>
+            </button>
+            <button
+              disabled={isBulkUpdating}
+              onClick={() => handleBulkStatusChange("cancelled")}
+              className="px-3 py-2 rounded-xl bg-stone-800 hover:bg-red-900/60 text-stone-300 hover:text-red-200 border border-stone-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <X className="h-4 w-4" />
+              <span>Cancel</span>
+            </button>
+          </div>
         </div>
       )}
 

@@ -21,8 +21,9 @@ import {
   Building2,
   Copy,
   Info,
+  MessageCircle,
 } from "lucide-react";
-import { naira } from "@/lib/hotel";
+import { naira, HOTEL, whatsappLink } from "@/lib/hotel";
 import type { AvailabilityResult, BookingQuote, BookingErrorCode } from "@/lib/booking/types";
 import { BookingCalendarDatePicker } from "@/components/booking/BookingCalendarDatePicker";
 import { usePaymentSettings } from "@/lib/settings/usePaymentSettings";
@@ -479,191 +480,98 @@ function BookingFlow() {
     { id: 0, label: "Dates", shortDesc: "Stay & Guests", icon: Calendar },
     { id: 1, label: "Room", shortDesc: "Select Suite", icon: BedDouble },
     { id: 2, label: "Details", shortDesc: "Guest Info", icon: User },
-    { id: 3, label: "Pay", shortDesc: "Secure Deposit", icon: CreditCard },
+    { id: 3, label: "Pay", shortDesc: "Payment & Confirm", icon: CreditCard },
   ] as const;
 
   const progressPercentage = Math.round(((step + 1) / STEP_CONFIG.length) * 100);
 
   return (
-    <div id="booking-flow-container" className="space-y-6">
-      {/* Sticky Progress Bar */}
+    <div id="booking-flow-container" className="space-y-6 sm:space-y-8">
+      {/* ── Modern Minimalist Stepper ── */}
       <nav
         aria-label="Booking steps"
-        className="sticky top-[64px] sm:top-[72px] lg:top-[78px] z-30 rounded-2xl bg-white/95 dark:bg-[#1a1815]/95 backdrop-blur-md border border-[#ece6dd] dark:border-[#2e2b26] shadow-sm p-3 sm:p-4 transition-all"
+        className="rounded-2xl bg-white dark:bg-[#1a1815] border border-stone-200/90 dark:border-stone-800/90 p-4 sm:p-5 shadow-xs"
       >
-        {/* Mobile View (< sm): Compact touch-friendly step navigation */}
-        <div className="sm:hidden">
-          <div className="flex items-center justify-between text-xs mb-2.5">
-            <div className="flex items-center gap-1.5">
-              <span className="font-condensed uppercase tracking-wider text-stone-500 dark:text-stone-400 font-medium">
-                Step {step + 1} of 4:
-              </span>
-              <strong className="text-stone-900 dark:text-white font-semibold">
-                {STEP_CONFIG[step].label}
-              </strong>
-            </div>
-            {step > 0 && (
-              <button
-                type="button"
-                onClick={() => jumpToStep(step - 1)}
-                className="text-[11px] font-condensed uppercase tracking-wider text-[var(--accent)] hover:underline inline-flex items-center gap-1 font-medium"
-              >
-                <ArrowLeft className="h-3 w-3" /> Back
-              </button>
-            )}
-          </div>
+        <div className="flex items-center justify-between gap-2">
+          {STEP_CONFIG.map((item, idx) => {
+            const isCurrent = idx === step;
+            const isCompleted = idx < step;
+            const isClickable = canJumpTo(idx);
 
-          <div className="grid grid-cols-4 gap-1.5">
-            {STEP_CONFIG.map((item, idx) => {
-              const isCurrent = idx === step;
-              const isCompleted = idx < step || (idx <= maxStepReached && idx !== step && ((idx === 0) || (idx === 1 && search) || (idx === 2 && quote)));
-              const isClickable = canJumpTo(idx);
-
-              return (
+            return (
+              <div key={item.id} className="flex-1 flex items-center">
                 <button
-                  key={item.id}
                   type="button"
                   disabled={!isClickable}
                   onClick={() => isClickable && jumpToStep(idx)}
-                  className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all ${
-                    isCurrent
-                      ? "bg-[var(--accent)]/10 text-stone-900 dark:text-white font-medium"
-                      : isClickable
-                        ? "hover:bg-stone-100 dark:hover:bg-stone-800/80 cursor-pointer text-stone-700 dark:text-stone-300"
-                        : "opacity-40 cursor-not-allowed text-stone-400"
+                  className={`group flex items-center gap-3 text-left transition-all ${
+                    isClickable ? "cursor-pointer" : "cursor-default"
                   }`}
-                  aria-label={`${item.label} (${isCurrent ? "Current step" : isCompleted ? "Completed - tap to jump back" : "Upcoming"})`}
-                  aria-current={isCurrent ? "step" : undefined}
                 >
                   <div
-                    className={`h-7 w-7 rounded-full flex items-center justify-center text-xs mb-1 transition-all ${
+                    className={`h-8 w-8 rounded-full text-xs font-semibold flex items-center justify-center shrink-0 transition-all ${
                       isCurrent
-                        ? "bg-[var(--accent)] text-white shadow-sm ring-2 ring-[var(--accent)]/40 font-bold"
+                        ? "bg-[var(--accent)] text-white shadow-sm ring-4 ring-[var(--accent)]/15 font-bold"
                         : isCompleted
-                          ? "bg-emerald-600 text-white font-bold"
-                          : "border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-stone-500"
+                        ? "bg-emerald-600 text-white font-bold"
+                        : "bg-stone-100 dark:bg-stone-800 text-stone-400 border border-stone-200 dark:border-stone-700"
                     }`}
                   >
-                    {isCompleted ? <Check className="h-3.5 w-3.5 stroke-[2.5]" /> : idx + 1}
+                    {isCompleted ? <Check className="h-4 w-4 stroke-[2.5]" /> : idx + 1}
                   </div>
-                  <span className="text-[11px] font-condensed uppercase tracking-wider truncate max-w-full">
-                    {item.label}
-                  </span>
-                  <span className="text-[9px] font-condensed uppercase tracking-tight">
-                    {isCurrent ? (
-                      <span className="text-[var(--accent)] font-semibold">Current</span>
-                    ) : isClickable ? (
-                      <span className="text-emerald-600 dark:text-emerald-400">Edit ↩</span>
-                    ) : (
-                      <span className="text-stone-400">—</span>
-                    )}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Desktop / Tablet View (>= sm): Full stepped layout with track & contextual summary */}
-        <div className="hidden sm:block">
-          <div className="relative flex items-center justify-between">
-            {/* Background connecting track */}
-            <div className="absolute top-1/2 left-8 right-8 -translate-y-1/2 h-[2px] bg-stone-200 dark:bg-stone-800 z-0" aria-hidden="true" />
-
-            {/* Active connecting track */}
-            <div
-              className="absolute top-1/2 left-8 -translate-y-1/2 h-[2px] bg-emerald-500 transition-all duration-500 ease-out z-0"
-              style={{
-                width: `${(Math.min(step, maxStepReached) / (STEP_CONFIG.length - 1)) * 84}%`,
-              }}
-              aria-hidden="true"
-            />
-
-            {STEP_CONFIG.map((item, idx) => {
-              const Icon = item.icon;
-              const isCurrent = idx === step;
-              const isCompleted = idx < step || (idx <= maxStepReached && idx !== step && ((idx === 0) || (idx === 1 && search) || (idx === 2 && quote)));
-              const isClickable = canJumpTo(idx);
-
-              let contextHint: string = item.shortDesc;
-              if (idx === 0 && checkIn && checkOut) {
-                contextHint = `${checkIn} → ${checkOut}`;
-              } else if (idx === 1 && quote) {
-                contextHint = quote.roomTypeName;
-              } else if (idx === 2 && name) {
-                contextHint = name;
-              } else if (idx === 3 && quote) {
-                contextHint = `Deposit ${naira(quote.pricing.depositDue / 100)}`;
-              }
-
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  disabled={!isClickable}
-                  onClick={() => isClickable && jumpToStep(idx)}
-                  className={`relative z-10 flex items-center gap-3 px-3.5 py-2 rounded-xl transition-all ${
-                    isCurrent
-                      ? "bg-white dark:bg-[#201d19] ring-2 ring-[var(--accent)] shadow-sm"
-                      : isClickable
-                        ? "bg-white/90 dark:bg-[#1a1815]/90 hover:bg-stone-50 dark:hover:bg-stone-800 cursor-pointer group hover:shadow-sm"
-                        : "bg-white/50 dark:bg-[#1a1815]/50 opacity-60 cursor-not-allowed"
-                  }`}
-                  aria-label={`${item.label}: ${contextHint} (${isCurrent ? "Current step" : isCompleted ? "Completed step - click to jump back" : "Upcoming step"})`}
-                  aria-current={isCurrent ? "step" : undefined}
-                >
-                  <div
-                    className={`h-9 w-9 rounded-full flex items-center justify-center transition-all shrink-0 ${
-                      isCurrent
-                        ? "bg-[var(--accent)] text-white shadow-md shadow-[var(--accent)]/20 ring-4 ring-[var(--accent)]/20 font-bold"
-                        : isCompleted
-                          ? "bg-emerald-600 text-white font-bold group-hover:scale-105"
-                          : "border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-stone-400"
-                    }`}
-                  >
-                    {isCompleted ? (
-                      <Check className="h-4 w-4 stroke-[2.5]" />
-                    ) : (
-                      <Icon className="h-4 w-4" />
-                    )}
-                  </div>
-                  <div className="text-left min-w-0">
+                  <div className="hidden md:block min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span
-                        className={`text-xs font-condensed uppercase tracking-wider font-semibold block ${
+                        className={`text-xs uppercase font-condensed tracking-wider font-semibold block transition-colors ${
                           isCurrent
-                            ? "text-[var(--accent-dark)] dark:text-[var(--accent-light)]"
+                            ? "text-stone-900 dark:text-white"
                             : isClickable
-                              ? "text-stone-800 dark:text-stone-200 group-hover:text-[var(--accent)]"
-                              : "text-stone-400 dark:text-stone-500"
+                            ? "text-stone-700 dark:text-stone-300 group-hover:text-[var(--accent)]"
+                            : "text-stone-400 dark:text-stone-500"
                         }`}
                       >
                         {item.label}
                       </span>
                       {isClickable && (
-                        <span className="text-[10px] font-condensed uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-medium group-hover:bg-[var(--accent)] group-hover:text-white transition-colors">
-                          Edit ↩
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                          ↩
                         </span>
                       )}
                     </div>
-                    <span className="text-[11px] text-stone-500 dark:text-stone-400 block truncate max-w-[120px] lg:max-w-[160px]">
-                      {contextHint}
+                    <span className="text-[11px] text-stone-400 dark:text-stone-500 block truncate">
+                      {item.shortDesc}
                     </span>
                   </div>
                 </button>
-              );
-            })}
-          </div>
+                {idx < STEP_CONFIG.length - 1 && (
+                  <div
+                    className={`hidden sm:block flex-1 h-[2px] mx-3 lg:mx-6 rounded-full transition-colors ${
+                      idx < step ? "bg-emerald-500" : "bg-stone-100 dark:bg-stone-800"
+                    }`}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
 
-        {/* Bottom subtle progress line */}
-        <div className="mt-3 -mx-3 -mb-3 sm:-mx-4 sm:-mb-4 h-[2.5px] bg-stone-100 dark:bg-stone-800/80 overflow-hidden rounded-b-2xl">
-          <div
-            className="h-full bg-[var(--accent)] transition-all duration-500 ease-out"
-            style={{
-              width: `${progressPercentage}%`,
-            }}
-          />
+        {/* Mobile current step indicator */}
+        <div className="md:hidden mt-3 pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-stone-400">Step {step + 1} of 4:</span>
+            <strong className="text-stone-900 dark:text-white font-semibold">
+              {STEP_CONFIG[step].label} — {STEP_CONFIG[step].shortDesc}
+            </strong>
+          </div>
+          {step > 0 && (
+            <button
+              type="button"
+              onClick={() => jumpToStep(step - 1)}
+              className="text-[var(--accent)] font-medium inline-flex items-center gap-1 hover:underline text-xs"
+            >
+              <ArrowLeft className="h-3 w-3" /> Back
+            </button>
+          )}
         </div>
       </nav>
 
@@ -676,17 +584,22 @@ function BookingFlow() {
             </div>
           )}
 
-        {/* Step 0 — Search */}
+        {/* ── STEP 0: STAY DATES & OCCUPANCY ── */}
         {step === 0 && (
-          <section className="glass p-6 rounded-md space-y-6 border border-[#ece6dd]/80" aria-label="Search availability">
-            <div className="flex items-center gap-2 border-b border-[#ece6dd]/60 pb-3">
-              <span className="h-6 w-6 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-xs font-medium flex items-center justify-center">1</span>
-              <div>
-                <h3 className="font-display text-xl text-stone-900 dark:text-white font-normal">Stay Dates &amp; Guests</h3>
-                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                  Select your arrival and departure dates. Calendar reflects real-time room inventory and sold-out nights.
-                </p>
-              </div>
+          <section
+            className="bg-white dark:bg-[#1a1815] p-6 sm:p-8 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-7"
+            aria-label="Search availability"
+          >
+            <div>
+              <span className="text-[11px] font-condensed uppercase tracking-wider text-[var(--accent)] font-semibold block mb-1">
+                Step 01
+              </span>
+              <h3 className="font-display text-2xl text-stone-900 dark:text-white font-normal">
+                Stay Dates &amp; Guests
+              </h3>
+              <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+                Choose your arrival and departure dates. The calendar reflects real-time room inventory.
+              </p>
             </div>
 
             {/* Real-time Inventory Calendar Date Picker */}
@@ -704,93 +617,195 @@ function BookingFlow() {
               minNights={1}
             />
 
-            {/* Occupancy, Rooms & Promo Options */}
-            <div className="pt-4 border-t border-[#ece6dd]/70 dark:border-stone-800">
-              <h4 className="text-xs font-condensed uppercase tracking-wider text-stone-600 dark:text-stone-300 font-semibold mb-3">
-                Occupancy &amp; Preferences
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                  <label htmlFor="adults" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Adults</label>
-                  <select id="adults" value={adults} onChange={(e) => setAdults(Number(e.target.value))} className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none text-stone-900 dark:text-white">
-                    {[1, 2, 3, 4, 5].map((a) => <option key={a} value={a}>{a} {a === 1 ? "Adult" : "Adults"}</option>)}
+            {/* Occupancy & Preferences */}
+            <div className="pt-6 border-t border-stone-100 dark:border-stone-800">
+              <span className="text-xs font-condensed uppercase tracking-wider text-stone-500 dark:text-stone-400 font-semibold block mb-4">
+                Guests &amp; Room Configuration
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="p-3 bg-stone-50 dark:bg-stone-900/60 rounded-xl border border-stone-200/60 dark:border-stone-800">
+                  <label htmlFor="adults" className="text-[11px] font-condensed uppercase tracking-wider text-stone-500 block mb-1">
+                    Adults
+                  </label>
+                  <select
+                    id="adults"
+                    value={adults}
+                    onChange={(e) => setAdults(Number(e.target.value))}
+                    className="w-full bg-transparent text-sm font-semibold text-stone-900 dark:text-white outline-none cursor-pointer"
+                  >
+                    {[1, 2, 3, 4, 5].map((a) => (
+                      <option key={a} value={a} className="text-stone-900">
+                        {a} {a === 1 ? "Adult" : "Adults"}
+                      </option>
+                    ))}
                   </select>
                 </div>
-                <div>
-                  <label htmlFor="children" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Children</label>
-                  <select id="children" value={children} onChange={(e) => setChildren(Number(e.target.value))} className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none text-stone-900 dark:text-white">
-                    {[0, 1, 2, 3].map((c) => <option key={c} value={c}>{c} {c === 1 ? "Child" : "Children"}</option>)}
+
+                <div className="p-3 bg-stone-50 dark:bg-stone-900/60 rounded-xl border border-stone-200/60 dark:border-stone-800">
+                  <label htmlFor="children" className="text-[11px] font-condensed uppercase tracking-wider text-stone-500 block mb-1">
+                    Children
+                  </label>
+                  <select
+                    id="children"
+                    value={children}
+                    onChange={(e) => setChildren(Number(e.target.value))}
+                    className="w-full bg-transparent text-sm font-semibold text-stone-900 dark:text-white outline-none cursor-pointer"
+                  >
+                    {[0, 1, 2, 3].map((c) => (
+                      <option key={c} value={c} className="text-stone-900">
+                        {c} {c === 1 ? "Child" : "Children"}
+                      </option>
+                    ))}
                   </select>
                 </div>
-                <div>
-                  <label htmlFor="rooms" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Rooms</label>
-                  <select id="rooms" value={roomCount} onChange={(e) => setRoomCount(Number(e.target.value))} className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none text-stone-900 dark:text-white">
-                    {[1, 2, 3].map((r) => <option key={r} value={r}>{r} Room{r > 1 ? "s" : ""}</option>)}
+
+                <div className="p-3 bg-stone-50 dark:bg-stone-900/60 rounded-xl border border-stone-200/60 dark:border-stone-800">
+                  <label htmlFor="rooms" className="text-[11px] font-condensed uppercase tracking-wider text-stone-500 block mb-1">
+                    Rooms
+                  </label>
+                  <select
+                    id="rooms"
+                    value={roomCount}
+                    onChange={(e) => setRoomCount(Number(e.target.value))}
+                    className="w-full bg-transparent text-sm font-semibold text-stone-900 dark:text-white outline-none cursor-pointer"
+                  >
+                    {[1, 2, 3].map((r) => (
+                      <option key={r} value={r} className="text-stone-900">
+                        {r} Room{r > 1 ? "s" : ""}
+                      </option>
+                    ))}
                   </select>
                 </div>
-                <div>
-                  <label htmlFor="promo" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Promo Code (optional)</label>
-                  <input id="promo" value={promoInput} onChange={(e) => setPromoInput(e.target.value.toUpperCase())} placeholder="e.g. WELCOME10" className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none placeholder:text-stone-400 text-stone-900 dark:text-white" />
+
+                <div className="p-3 bg-stone-50 dark:bg-stone-900/60 rounded-xl border border-stone-200/60 dark:border-stone-800">
+                  <label htmlFor="promo" className="text-[11px] font-condensed uppercase tracking-wider text-stone-500 block mb-1">
+                    Promo Code
+                  </label>
+                  <input
+                    id="promo"
+                    value={promoInput}
+                    onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                    placeholder="e.g. VIP10"
+                    className="w-full bg-transparent text-sm font-semibold text-stone-900 dark:text-white uppercase placeholder:normal-case placeholder:font-normal placeholder:text-stone-400 outline-none"
+                  />
                 </div>
               </div>
             </div>
-
 
             <button
               type="button"
               onClick={runSearch}
               disabled={!canSearch || searching}
-              className="btn-gold w-full min-h-[52px] text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50"
+              className="btn-gold w-full min-h-[52px] text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm cursor-pointer"
             >
-              {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              <span>{searching ? "Checking availability…" : "Check Availability"}</span>
+              {searching ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+              <span>{searching ? "Checking live suite availability…" : "Find Available Suites"}</span>
             </button>
           </section>
         )}
 
-        {/* Step 1 — Room selection */}
+        {/* ── STEP 1: SUITE SELECTION ── */}
         {step === 1 && search && (
-          <section className="space-y-4" aria-label="Select a room">
-            <div className="flex items-center justify-between">
-              <h3 className="font-display text-xl text-stone-900 dark:text-white">Available Rooms</h3>
-              <button type="button" onClick={() => jumpToStep(0)} className="text-xs font-condensed uppercase tracking-wider text-stone-500 hover:text-[var(--accent)] inline-flex items-center gap-1 transition-colors">
+          <section className="space-y-5" aria-label="Select a suite">
+            <div className="flex items-center justify-between pb-1">
+              <div>
+                <span className="text-[11px] font-condensed uppercase tracking-wider text-[var(--accent)] font-semibold block mb-0.5">
+                  Step 02
+                </span>
+                <h3 className="font-display text-2xl text-stone-900 dark:text-white font-normal">
+                  Available Suites
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => jumpToStep(0)}
+                className="text-xs font-condensed uppercase tracking-wider text-stone-500 hover:text-[var(--accent)] inline-flex items-center gap-1.5 transition-colors font-medium cursor-pointer"
+              >
                 <ArrowLeft className="h-3.5 w-3.5" /> Change dates
               </button>
             </div>
+
             {search.rooms.length === 0 && (
-              <div className="glass p-8 text-center rounded-md border border-[#ece6dd]">
-                <Calendar className="h-8 w-8 text-stone-300 mx-auto mb-3" />
-                <p className="text-sm text-stone-600 dark:text-stone-300">No rooms are available for these dates. Please change your dates or guest count.</p>
+              <div className="bg-white dark:bg-[#1a1815] p-12 text-center rounded-2xl border border-stone-200 dark:border-stone-800">
+                <Calendar className="h-10 w-10 text-stone-300 dark:text-stone-600 mx-auto mb-3" />
+                <h4 className="font-display text-lg text-stone-800 dark:text-stone-200 mb-1">
+                  No Suites Available for These Dates
+                </h4>
+                <p className="text-xs text-stone-500 max-w-sm mx-auto mb-5">
+                  All rooms are currently reserved for the selected period. Please try choosing alternative dates.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => jumpToStep(0)}
+                  className="btn-gold px-6 py-2.5 text-xs font-medium"
+                >
+                  Modify Search
+                </button>
               </div>
             )}
+
             {search.rooms.map((r) => (
-              <div key={r.roomType.id} className={`glass p-5 rounded-md border ${r.available > 0 ? "border-[#ece6dd]" : "border-[#ece6dd]/50 opacity-60"} flex gap-4`}>
-                <Image
-                  src={r.roomType.image}
-                  alt={r.roomType.name}
-                  width={112}
-                  height={112}
-                  referrerPolicy="no-referrer"
-                  className="hidden sm:block w-28 h-28 object-cover rounded-xl"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <h4 className="font-display text-lg text-stone-900 dark:text-white">{r.roomType.name}</h4>
-                    <span className="text-sm font-medium text-[var(--accent)]">{naira(r.minRate / 100)} <span className="text-xs text-stone-400">/ night</span></span>
+              <div
+                key={r.roomType.id}
+                className={`bg-white dark:bg-[#1a1815] rounded-2xl border transition-all duration-200 p-5 sm:p-6 flex flex-col sm:flex-row gap-5 items-start sm:items-center ${
+                  r.available > 0
+                    ? "border-stone-200/90 dark:border-stone-800 shadow-xs hover:border-[var(--accent)]/60"
+                    : "border-stone-200/50 dark:border-stone-800/50 opacity-60"
+                }`}
+              >
+                <div className="relative w-full sm:w-44 h-44 sm:h-36 shrink-0 rounded-xl overflow-hidden bg-stone-100 dark:bg-stone-900">
+                  <Image
+                    src={r.roomType.image}
+                    alt={r.roomType.name}
+                    fill
+                    referrerPolicy="no-referrer"
+                    className="object-cover"
+                  />
+                </div>
+
+                <div className="flex-1 min-w-0 w-full">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-display text-xl text-stone-900 dark:text-white font-medium">
+                        {r.roomType.name}
+                      </h4>
+                      <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400 mt-1">
+                        <span>Up to {r.roomType.maxOccupancy} Guests</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{r.available > 0 ? `${r.available} left` : "Sold out"}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-left sm:text-right">
+                      <span className="font-display text-xl font-bold text-stone-900 dark:text-white">
+                        {naira(r.minRate / 100)}
+                      </span>
+                      <span className="text-xs text-stone-400 block">per night</span>
+                    </div>
                   </div>
-                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 line-clamp-2">{r.roomType.blurb}</p>
-                  <div className="flex items-center justify-between mt-3">
-                    <span className={`text-xs font-condensed uppercase tracking-wider ${r.available > 0 ? "text-emerald-600" : "text-stone-400"}`}>
-                      {r.available > 0 ? `${r.available} available` : "Sold out for these dates"}
+
+                  <p className="text-xs text-stone-600 dark:text-stone-300 mt-2 line-clamp-2 leading-relaxed">
+                    {r.roomType.blurb}
+                  </p>
+
+                  <div className="pt-4 mt-3 border-t border-stone-100 dark:border-stone-800/80 flex items-center justify-between gap-3">
+                    <span className="text-[11px] text-stone-400 hidden sm:inline">
+                      Complimentary Breakfast · High-Speed WiFi · 24/7 Concierge
                     </span>
+
                     <button
                       type="button"
                       disabled={r.available <= 0 || busy}
                       onClick={() => selectRoom(r.roomType.id)}
-                      className="btn-gold px-5 py-2.5 text-xs font-medium inline-flex items-center gap-1.5 disabled:opacity-40"
+                      className="btn-gold px-6 py-2.5 text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-40 ml-auto cursor-pointer shadow-xs"
                     >
                       {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                      Select <ArrowRight className="h-3.5 w-3.5" />
+                      <span>Select Suite</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
@@ -799,209 +814,343 @@ function BookingFlow() {
           </section>
         )}
 
-        {/* Step 2 — Guest details + review */}
+        {/* ── STEP 2: GUEST DETAILS & REVIEW ── */}
         {step === 2 && quote && (
           <section className="space-y-6" aria-label="Guest details">
-            <div className="glass p-6 rounded-md space-y-5 border border-[#ece6dd]/80">
-              <div className="flex items-center gap-2 border-b border-[#ece6dd]/60 pb-3">
-                <span className="h-6 w-6 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-xs font-medium flex items-center justify-center">3</span>
-                <h3 className="font-display text-xl text-stone-900 dark:text-white font-normal">Primary Guest Information</h3>
+            <div className="bg-white dark:bg-[#1a1815] p-6 sm:p-8 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-6">
+              <div>
+                <span className="text-[11px] font-condensed uppercase tracking-wider text-[var(--accent)] font-semibold block mb-1">
+                  Step 03
+                </span>
+                <h3 className="font-display text-2xl text-stone-900 dark:text-white font-normal">
+                  Guest Information
+                </h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+                  Please provide your contact details for booking confirmation and front-desk check-in.
+                </p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <label htmlFor="fullname" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Full Name</label>
-                  <input id="fullname" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Chief Adeleke Johnson" className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none placeholder:text-stone-400 text-stone-900 dark:text-white" />
+                  <label htmlFor="fullname" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1.5">
+                    Full Name *
+                  </label>
+                  <input
+                    id="fullname"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Chief Adeleke Johnson"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-900/60 text-sm text-stone-900 dark:text-white placeholder:text-stone-400 outline-none focus:border-stone-600 focus:bg-white dark:focus:bg-stone-900"
+                  />
                 </div>
+
                 <div>
-                  <label htmlFor="email" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Email Address</label>
-                  <input id="email" required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="guest@domain.com" className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none placeholder:text-stone-400 text-stone-900 dark:text-white" />
+                  <label htmlFor="email" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1.5">
+                    Email Address *
+                  </label>
+                  <input
+                    id="email"
+                    required
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="guest@domain.com"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-900/60 text-sm text-stone-900 dark:text-white placeholder:text-stone-400 outline-none focus:border-stone-600 focus:bg-white dark:focus:bg-stone-900"
+                  />
                 </div>
+
                 <div>
-                  <label htmlFor="phone" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Phone / WhatsApp</label>
-                  <input id="phone" required type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+234 800 000 0000" className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none placeholder:text-stone-400 text-stone-900 dark:text-white" />
+                  <label htmlFor="phone" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1.5">
+                    Phone / WhatsApp *
+                  </label>
+                  <input
+                    id="phone"
+                    required
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+234 800 000 0000"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-900/60 text-sm text-stone-900 dark:text-white placeholder:text-stone-400 outline-none focus:border-stone-600 focus:bg-white dark:focus:bg-stone-900"
+                  />
                 </div>
+
                 <div className="sm:col-span-2">
-                  <label htmlFor="requests" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1">Special Requests</label>
-                  <textarea id="requests" rows={2} value={requests} onChange={(e) => setRequests(e.target.value)} placeholder="High floor, quiet wing, anniversary setup…" className="w-full border-b border-[#ece6dd] py-2 text-base bg-transparent outline-none resize-none placeholder:text-stone-400 text-stone-900 dark:text-white" />
+                  <label htmlFor="requests" className="text-xs font-condensed uppercase tracking-wider text-stone-700 dark:text-stone-300 font-medium block mb-1.5">
+                    Special Requests (optional)
+                  </label>
+                  <textarea
+                    id="requests"
+                    rows={2}
+                    value={requests}
+                    onChange={(e) => setRequests(e.target.value)}
+                    placeholder="High floor, quiet wing, anniversary setup, late check-in notice…"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-900/60 text-sm text-stone-900 dark:text-white placeholder:text-stone-400 outline-none resize-none focus:border-stone-600 focus:bg-white dark:focus:bg-stone-900"
+                  />
                 </div>
               </div>
+
+              {/* Optional Enhancements */}
+              {addons.length > 0 && (
+                <div className="pt-5 border-t border-stone-100 dark:border-stone-800 space-y-3">
+                  <span className="text-xs font-condensed uppercase tracking-wider text-stone-500 font-semibold block">
+                    Enhance Your Stay
+                  </span>
+                  <div className="space-y-2">
+                    {addons.map((a) => (
+                      <div
+                        key={a.id}
+                        className="flex items-center justify-between p-3 rounded-xl border border-stone-200/70 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/40 text-xs"
+                      >
+                        <div>
+                          <span className="font-semibold text-stone-900 dark:text-white block">
+                            {a.name}
+                          </span>
+                          <span className="text-stone-500">
+                            {naira(a.price / 100)}{" "}
+                            {a.unit === "per_night" ? "per night" : a.unit === "per_person" ? "per person" : ""}
+                          </span>
+                        </div>
+
+                        <select
+                          aria-label={`Quantity for ${a.name}`}
+                          value={addonSelection[a.id] ?? 0}
+                          onChange={(e) => {
+                            const qty = Number(e.target.value);
+                            setAddonSelection((s) => ({ ...s, [a.id]: qty }));
+                          }}
+                          className="px-2 py-1 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-medium cursor-pointer"
+                        >
+                          {[0, 1, 2, 3].map((n) => (
+                            <option key={n} value={n}>
+                              {n === 0 ? "None" : `${n}×`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => refreshQuote()}
+                    className="text-xs text-[var(--accent)] font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer pt-1"
+                  >
+                    {busy ? "Updating pricing…" : "Recalculate summary with selected extras"}
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Extras */}
-            {addons.length > 0 && (
-              <div className="glass p-6 rounded-md space-y-3 border border-[#ece6dd]/80">
-                <h3 className="font-display text-lg text-stone-900 dark:text-white font-normal">Enhance Your Stay</h3>
-                {addons.map((a) => (
-                  <div key={a.id} className="flex items-center justify-between gap-3 py-2 border-b border-[#ece6dd]/60 last:border-0">
-                    <div className="min-w-0">
-                      <p className="text-sm text-stone-900 dark:text-white font-medium">{a.name}</p>
-                      <p className="text-xs text-stone-500">{naira(a.price / 100)} {a.unit === "per_night" ? "per night" : a.unit === "per_person" ? "per person" : ""}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <select
-                        aria-label={`Quantity for ${a.name}`}
-                        value={addonSelection[a.id] ?? 0}
-                        onChange={(e) => {
-                          const qty = Number(e.target.value);
-                          setAddonSelection((s) => ({ ...s, [a.id]: qty }));
-                        }}
-                        className="border border-[#ece6dd] rounded px-2 py-1 text-sm bg-transparent text-stone-900 dark:text-white"
-                      >
-                        {[0, 1, 2, 3].map((n) => <option key={n} value={n}>{n === 0 ? "—" : n}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                ))}
-                <button type="button" onClick={() => refreshQuote()} className="btn-gold w-full py-2.5 text-xs font-medium">
-                  {busy ? "Recalculating…" : "Apply extras & update price"}
-                </button>
-              </div>
-            )}
-
-            {/* Inline Error display in Step 2 */}
-            {error && (
-              <div role="alert" className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200">
-                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                <p>{error}</p>
-              </div>
-            )}
-
             <div className="flex gap-3">
-              <button type="button" onClick={() => jumpToStep(1)} className="btn-outline-white px-6 py-3 text-xs font-medium inline-flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => jumpToStep(1)}
+                className="px-5 py-3 rounded-xl border border-stone-300 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-semibold text-stone-700 dark:text-stone-300 inline-flex items-center gap-2 transition-colors cursor-pointer"
+              >
                 <ArrowLeft className="h-4 w-4" /> Back to Rooms
               </button>
               <button
                 type="button"
                 onClick={createBooking}
                 disabled={!name || !email || !phone || busy}
-                className="btn-gold flex-1 min-h-[52px] text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50"
+                className="btn-gold flex-1 min-h-[50px] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-sm"
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-                <span>{busy ? "Reserving your room…" : "Reserve & Continue to Payment"}</span>
+                <span>{busy ? "Securing suite hold…" : "Continue to Payment"}</span>
               </button>
             </div>
           </section>
         )}
 
-        {/* Step 3 — Payment */}
+        {/* ── STEP 3: PAYMENT & CONFIRMATION ── */}
         {step === 3 && reference && quote && (
-          <section className="glass p-6 rounded-md space-y-5 border border-[#ece6dd]/80" aria-label="Payment">
-            <div className="flex items-center gap-2 border-b border-[#ece6dd]/60 pb-3">
-              <span className="h-6 w-6 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-xs font-medium flex items-center justify-center">4</span>
-              <h3 className="font-display text-xl text-stone-900 dark:text-white font-normal">Secure Your Reservation</h3>
-            </div>
-
-            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl text-xs text-emerald-800 dark:text-emerald-300">
-              Room held for 30 minutes — reference <strong>{reference}</strong>.
-            </div>
-
-            {/* If Paystack is Enabled: Online Paystack Gateway is Primary */}
-            {paystackEnabled ? (
-              <div className="space-y-4">
-                <p className="text-xs text-stone-600 dark:text-stone-300">
-                  Pay the deposit of <strong>{naira(quote.pricing.depositDue / 100)}</strong> now with Paystack (cards, bank transfer, USSD). The balance of {naira(quote.pricing.balanceDue / 100)} is due at the hotel.
-                </p>
-
-                <button
-                  type="button"
-                  onClick={payNow}
-                  disabled={busy}
-                  className="btn-gold w-full min-h-[52px] text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-md"
-                >
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                  <span>Pay {naira(quote.pricing.depositDue / 100)} with Paystack</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={checkPayment}
-                  disabled={checkingPayment}
-                  className="w-full py-2.5 text-xs font-condensed uppercase tracking-wider text-stone-600 dark:text-stone-300 hover:text-[var(--accent)] transition-colors"
-                >
-                  {checkingPayment ? "Verifying payment…" : "I've completed payment — verify now"}
-                </button>
-
-                {/* Alternative Settlement Option */}
-                <div className="pt-3 border-t border-[#ece6dd]/60 text-center">
-                  <span className="text-[11px] text-stone-500 block mb-2 font-medium">Or prefer manual transfer / payment on arrival?</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      window.location.assign(
-                        `/booking/confirmation?ref=${encodeURIComponent(reference)}&method=bank_transfer`
-                      );
-                    }}
-                    className="w-full py-2.5 px-4 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50/80 dark:bg-stone-900 text-stone-800 dark:text-stone-200 text-xs font-semibold hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Building2 className="h-4 w-4 text-[var(--accent)]" />
-                    <span>Confirm Hold &amp; Pay via Direct Bank Transfer / At Hotel</span>
-                  </button>
+          <section className="space-y-6" aria-label="Payment and confirmation">
+            <div className="bg-white dark:bg-[#1a1815] p-6 sm:p-8 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-6">
+              <div>
+                <span className="text-[11px] font-condensed uppercase tracking-wider text-[var(--accent)] font-semibold block mb-1">
+                  Step 04
+                </span>
+                <h3 className="font-display text-2xl text-stone-900 dark:text-white font-normal">
+                  Complete Reservation
+                </h3>
+                <div className="mt-2.5 p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-200">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>
+                      Room held for 30 minutes · Booking Reference: <strong className="font-mono">{reference}</strong>
+                    </span>
+                  </div>
                 </div>
               </div>
-            ) : (
-              /* If Paystack is Disabled: Direct Bank Transfer & Front Desk Mode */
-              <div className="space-y-4">
-                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
-                  <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+
+              {/* Total Summary */}
+              <div className="p-4 rounded-xl bg-stone-50 dark:bg-stone-900/70 border border-stone-200/80 dark:border-stone-800 flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] uppercase font-condensed tracking-wider text-stone-500 block">
+                    Total Payable
+                  </span>
+                  <span className="font-display text-2xl font-bold text-stone-900 dark:text-white">
+                    {naira(quote.pricing.grandTotal / 100)}
+                  </span>
+                </div>
+                <div className="text-right text-xs text-stone-500">
+                  <span>{quote.nights} night{quote.nights > 1 ? "s" : ""} · {quote.roomTypeName}</span>
+                  <span className="block text-emerald-600 dark:text-emerald-400 font-medium">All taxes &amp; fees included</span>
+                </div>
+              </div>
+
+              {/* PAYMENT OPTION 1: PAYSTACK ONLINE */}
+              {paystackEnabled ? (
+                <div className="p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-[#1a1815] space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-stone-900 dark:text-white flex items-center gap-2">
+                      <CreditCard className="h-4 w-4 text-[var(--accent)]" />
+                      <span>Pay Online via Paystack</span>
+                    </span>
+                    <span className="text-[10px] uppercase font-condensed tracking-wider font-semibold text-emerald-700 dark:text-emerald-300">
+                      Cards · USSD · Bank Transfer
+                    </span>
+                  </div>
+                  <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
+                    Instant automatic confirmation. Pay securely with debit/credit card, USSD, or direct bank transfer.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={payNow}
+                    disabled={busy}
+                    className="btn-gold w-full min-h-[50px] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                  >
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                    <span>Pay {naira(quote.pricing.grandTotal / 100)} via Paystack</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={checkPayment}
+                    disabled={checkingPayment}
+                    className="w-full text-center py-1 text-xs text-stone-500 hover:text-[var(--accent)] transition-colors cursor-pointer"
+                  >
+                    {checkingPayment ? "Verifying with Paystack…" : "Already made payment? Verify now"}
+                  </button>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+                  <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                   <div>
                     <strong className="block font-semibold">Online Card Checkout Paused</strong>
                     <span>
                       {paymentSettings.noticeMessage ||
-                        "Online Paystack payment is currently offline. Direct Bank Transfer and Front-Desk settlements are active."}
+                        "Online card payments are temporarily offline. WhatsApp concierge and Direct Bank Transfer are active."}
                     </span>
                   </div>
                 </div>
+              )}
 
-                <div className="p-4 rounded-xl bg-white dark:bg-[#1a1815] border border-[#ece6dd] dark:border-[#2e2b26] space-y-3">
-                  <div className="flex items-center justify-between text-xs border-b border-[#ece6dd]/60 dark:border-stone-800 pb-2">
-                    <span className="font-semibold text-stone-900 dark:text-white flex items-center gap-1.5">
-                      <Building2 className="h-4 w-4 text-[var(--accent)]" />
-                      <span>Hotel Bank Account for Transfer:</span>
-                    </span>
-                    <span className="font-bold text-[var(--accent)] text-sm">
-                      {naira(quote.pricing.depositDue / 100)} deposit
-                    </span>
+              {/* PAYMENT OPTION 2: INSTANT WHATSAPP CONFIRMATION */}
+              <div className="p-5 rounded-2xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-stone-900 dark:text-white flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-[#25D366]" />
+                    <span>Instant WhatsApp Concierge</span>
+                  </span>
+                  <span className="text-[10px] uppercase font-condensed tracking-wider font-semibold text-emerald-800 dark:text-emerald-300">
+                    Direct Front Desk
+                  </span>
+                </div>
+                <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
+                  Message our 24/7 front desk team with your booking reference <strong>{reference}</strong> to confirm your suite instantly.
+                </p>
+
+                <a
+                  href={whatsappLink(
+                    [
+                      `Hello ${HOTEL.name}, I would like to confirm my room reservation:`,
+                      `• Reference: ${reference}`,
+                      `• Guest: ${name}`,
+                      `• Phone: ${phone}`,
+                      `• Email: ${email}`,
+                      `• Room: ${quote.roomTypeName}`,
+                      `• Dates: ${quote.checkIn} to ${quote.checkOut} (${quote.nights} night${quote.nights > 1 ? "s" : ""})`,
+                      `• Guests: ${quote.adults} Adult(s)${quote.children > 0 ? `, ${quote.children} Child(ren)` : ""}`,
+                      `• Total: ${naira(quote.pricing.grandTotal / 100)}`,
+                      requests ? `• Special Requests: ${requests}` : null,
+                      `Please confirm my booking and provide check-in assistance. Thank you!`,
+                    ]
+                      .filter(Boolean)
+                      .join("\n")
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => {
+                    setTimeout(() => {
+                      window.location.assign(
+                        `/booking/confirmation?ref=${encodeURIComponent(reference)}&method=whatsapp`
+                      );
+                    }, 400);
+                  }}
+                  className="w-full min-h-[48px] px-4 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  <span>Confirm via WhatsApp ({HOTEL.phone})</span>
+                </a>
+              </div>
+
+              {/* PAYMENT OPTION 3: DIRECT BANK TRANSFER */}
+              <div className="p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-[#1a1815] space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-stone-900 dark:text-white flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-[var(--accent)]" />
+                    <span>Direct Bank Transfer / Front Desk Settlement</span>
+                  </span>
+                  <span className="font-bold text-[var(--accent)] text-sm">
+                    {naira(quote.pricing.grandTotal / 100)}
+                  </span>
+                </div>
+
+                <div className="grid gap-2 text-xs text-stone-700 dark:text-stone-300">
+                  <div className="flex justify-between">
+                    <span className="text-stone-500">Bank:</span>
+                    <strong className="text-stone-900 dark:text-white font-medium">
+                      {paymentSettings.bankDetails?.bankName || "Zenith Bank"}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-stone-500">Account Name:</span>
+                    <strong className="text-stone-900 dark:text-white font-medium">
+                      {paymentSettings.bankDetails?.accountName || "Banky Hotel & Suites Ltd"}
+                    </strong>
                   </div>
 
-                  <div className="grid gap-2 text-xs text-stone-700 dark:text-stone-300">
-                    <div className="flex justify-between">
-                      <span className="text-stone-500">Bank:</span>
-                      <strong className="text-stone-900 dark:text-white font-medium">
-                        {paymentSettings.bankDetails?.bankName || "Zenith Bank"}
-                      </strong>
+                  <div className="flex items-center justify-between bg-stone-50 dark:bg-stone-900/80 p-3 rounded-xl border border-stone-200 dark:border-stone-800">
+                    <div>
+                      <span className="text-[10px] text-stone-400 block uppercase font-mono">
+                        Account Number:
+                      </span>
+                      <span className="font-mono font-bold text-base text-stone-900 dark:text-white">
+                        {paymentSettings.bankDetails?.accountNumber || "1018273645"}
+                      </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-stone-500">Account Name:</span>
-                      <strong className="text-stone-900 dark:text-white font-medium">
-                        {paymentSettings.bankDetails?.accountName || "Banky Hotel & Suites Ltd"}
-                      </strong>
-                    </div>
-                    <div className="flex items-center justify-between bg-stone-50 dark:bg-stone-900/80 p-2 rounded-lg border border-stone-200 dark:border-stone-800">
-                      <div>
-                        <span className="text-[10px] text-stone-500 block uppercase font-mono">Account Number:</span>
-                        <span className="font-mono font-bold text-base text-stone-900 dark:text-white">
-                          {paymentSettings.bankDetails?.accountNumber || "1018273645"}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const num = paymentSettings.bankDetails?.accountNumber || "1018273645";
-                          if (navigator.clipboard) {
-                            navigator.clipboard.writeText(num);
-                            setCopiedBank(true);
-                            setTimeout(() => setCopiedBank(false), 2000);
-                          }
-                        }}
-                        className="p-1.5 px-3 rounded-md bg-white dark:bg-stone-800 border text-xs font-semibold text-stone-700 dark:text-stone-200 hover:text-[var(--accent)] inline-flex items-center gap-1 shadow-sm"
-                      >
-                        {copiedBank ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                        <span>{copiedBank ? "Copied" : "Copy"}</span>
-                      </button>
-                    </div>
-                    <div className="text-[11px] text-stone-500 italic">
-                      Narration: Please use reference <strong>{reference}</strong> when transferring.
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const num = paymentSettings.bankDetails?.accountNumber || "1018273645";
+                        if (navigator.clipboard) {
+                          navigator.clipboard.writeText(num);
+                          setCopiedBank(true);
+                          setTimeout(() => setCopiedBank(false), 2000);
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-xs font-semibold text-stone-700 dark:text-stone-200 hover:text-[var(--accent)] inline-flex items-center gap-1 shadow-xs cursor-pointer"
+                    >
+                      {copiedBank ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                      <span>{copiedBank ? "Copied" : "Copy"}</span>
+                    </button>
+                  </div>
+
+                  <div className="text-[11px] text-stone-500">
+                    Transfer Narration: Please include your reference <strong>{reference}</strong> in narration.
                   </div>
                 </div>
 
@@ -1012,94 +1161,127 @@ function BookingFlow() {
                       `/booking/confirmation?ref=${encodeURIComponent(reference)}&method=bank_transfer`
                     );
                   }}
-                  className="btn-gold w-full min-h-[52px] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                  className="w-full min-h-[48px] px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-white dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
                 >
                   <Building2 className="h-4 w-4" />
-                  <span>Confirm Reservation &amp; Settle via Bank Transfer / At Hotel</span>
+                  <span>Confirm Hold &amp; Pay via Bank Transfer</span>
                 </button>
               </div>
-            )}
 
-            <div className="pt-3 border-t border-[#ece6dd]/60 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => jumpToStep(2)}
-                className="text-xs font-condensed uppercase tracking-wider text-stone-500 hover:text-[var(--accent)] inline-flex items-center gap-1.5 transition-colors"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" /> Modify guest details
-              </button>
-              <button
-                type="button"
-                onClick={() => jumpToStep(1)}
-                className="text-xs font-condensed uppercase tracking-wider text-stone-500 hover:text-[var(--accent)] inline-flex items-center gap-1.5 transition-colors"
-              >
-                Change room
-              </button>
+              <div className="pt-2 flex items-center justify-between text-xs">
+                <button
+                  type="button"
+                  onClick={() => jumpToStep(2)}
+                  className="text-stone-500 hover:text-[var(--accent)] inline-flex items-center gap-1 font-medium cursor-pointer"
+                >
+                  <ArrowLeft className="h-3 w-3" /> Edit Guest Details
+                </button>
+                <button
+                  type="button"
+                  onClick={() => jumpToStep(1)}
+                  className="text-stone-500 hover:text-[var(--accent)] inline-flex items-center gap-1 font-medium cursor-pointer"
+                >
+                  Change Suite
+                </button>
+              </div>
             </div>
           </section>
         )}
       </div>
 
-      {/* Sidebar: authoritative price breakdown */}
-      <aside className="h-fit rounded-xl p-6 sm:p-8 space-y-4 border border-[#ece6dd]/80 bg-white dark:bg-[#1a1815] shadow-md lg:sticky lg:top-[160px]" aria-live="polite">
-        <div>
-          <span className="eyebrow text-[var(--accent)] font-medium">Stay Breakdown</span>
-          <h2 className="mt-1 text-2xl sm:text-3xl font-display font-normal text-stone-900 dark:text-white">
-            {quote ? quote.roomTypeName : "Your Selection"}
+      {/* ── AUTHORITATIVE RESERVATION FOLIO SIDEBAR ── */}
+      <aside
+        className="rounded-2xl p-6 sm:p-7 border border-stone-200/90 dark:border-stone-800 bg-white dark:bg-[#1a1815] shadow-xs lg:sticky lg:top-[100px] space-y-5"
+        aria-live="polite"
+      >
+        <div className="border-b border-stone-100 dark:border-stone-800 pb-4">
+          <span className="text-[11px] font-condensed uppercase tracking-wider text-[var(--accent)] font-semibold block">
+            Reservation Folio
+          </span>
+          <h2 className="mt-1 text-xl sm:text-2xl font-display font-medium text-stone-900 dark:text-white">
+            {quote ? quote.roomTypeName : "Your Stay Summary"}
           </h2>
         </div>
 
-        {!quote && (
-          <p className="text-xs text-stone-500 dark:text-stone-400">
-            Search your dates and select a room — the full price breakdown, taxes and charges will appear here, calculated by our reservations system.
-          </p>
-        )}
-
-        {quote && (
-          <div className="space-y-2.5 text-sm">
-            <div className="flex justify-between"><span className="text-stone-600 dark:text-stone-300">{quote.checkIn} → {quote.checkOut}</span><span className="text-stone-500">{quote.nights} night{quote.nights !== 1 ? "s" : ""}</span></div>
-            <div className="border-t border-[#ece6dd] dark:border-[#2e2b26] pt-2.5 space-y-2">
-              {quote.nightlyRates.map((r, i) => (
-                <div key={i} className="flex justify-between text-xs">
-                  <span className="text-stone-500 dark:text-stone-400">Night {i + 1} · {quote.roomTypeName}</span>
-                  <span className="text-stone-700 dark:text-stone-200">{naira(r / 100)}</span>
-                </div>
-              ))}
-              <div className="flex justify-between text-xs">
-                <span className="text-stone-500 dark:text-stone-400">Rooms</span>
-                <span className="text-stone-700 dark:text-stone-200">× {quote.roomCount}</span>
-              </div>
-            </div>
-            {quote.addons.length > 0 && (
-              <div className="border-t border-[#ece6dd] dark:border-[#2e2b26] pt-2.5 space-y-2">
-                {quote.addons.map((a) => (
-                  <div key={a.id} className="flex justify-between text-xs">
-                    <span className="text-stone-500 dark:text-stone-400">{a.name} × {a.qty}</span>
-                    <span className="text-stone-700 dark:text-stone-200">{naira(a.total / 100)}</span>
-                  </div>
-                ))}
+        {!quote ? (
+          <div className="space-y-3 py-4 text-center">
+            <BedDouble className="h-8 w-8 text-stone-300 dark:text-stone-700 mx-auto" />
+            <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+              Select your dates and suite to see full transparent pricing, inclusive of taxes and service fees.
+            </p>
+            {checkIn && checkOut && (
+              <div className="text-xs font-mono text-stone-600 dark:text-stone-300 bg-stone-50 dark:bg-stone-900/60 p-2.5 rounded-xl border border-stone-200/60 dark:border-stone-800">
+                {checkIn} → {checkOut}
               </div>
             )}
-            <div className="border-t border-[#ece6dd] dark:border-[#2e2b26] pt-2.5 space-y-2">
-              <div className="flex justify-between text-xs"><span className="text-stone-500 dark:text-stone-400">Rooms subtotal</span><span className="text-stone-700 dark:text-stone-200">{naira(quote.pricing.roomSubtotal / 100)}</span></div>
-              {quote.pricing.discountTotal > 0 && (
-                <div className="flex justify-between text-xs text-emerald-600"><span>Discount {quote.promoCode ? `(${quote.promoCode})` : ""}</span><span>−{naira(quote.pricing.discountTotal / 100)}</span></div>
-              )}
-              <div className="flex justify-between text-xs"><span className="text-stone-500 dark:text-stone-400">Service charge (5%)</span><span className="text-stone-700 dark:text-stone-200">{naira(quote.pricing.serviceCharge / 100)}</span></div>
-              <div className="flex justify-between text-xs"><span className="text-stone-500 dark:text-stone-400">VAT (7.5%)</span><span className="text-stone-700 dark:text-stone-200">{naira(quote.pricing.taxTotal / 100)}</span></div>
-              <div className="flex justify-between border-t border-[#ece6dd] dark:border-[#2e2b26] pt-2.5 text-base sm:text-lg font-medium text-stone-900 dark:text-white">
-                <span>Total</span>
-                <span className="text-[var(--accent)]">{naira(quote.pricing.grandTotal / 100)}</span>
-              </div>
-              <div className="flex justify-between text-xs"><span className="text-stone-500 dark:text-stone-400">Deposit due now</span><span className="text-stone-700 dark:text-stone-200 font-medium">{naira(quote.pricing.depositDue / 100)}</span></div>
-              <div className="flex justify-between text-xs"><span className="text-stone-500 dark:text-stone-400">Balance at hotel</span><span className="text-stone-700 dark:text-stone-200">{naira(quote.pricing.balanceDue / 100)}</span></div>
+          </div>
+        ) : (
+          <div className="space-y-4 text-xs">
+            <div className="flex justify-between items-center text-stone-700 dark:text-stone-300 pb-3 border-b border-stone-100 dark:border-stone-800">
+              <span className="font-medium">{quote.checkIn} → {quote.checkOut}</span>
+              <span className="text-stone-500 font-mono">{quote.nights} night{quote.nights !== 1 ? "s" : ""}</span>
             </div>
+
+            {/* Itemized pricing breakdown */}
+            <div className="space-y-2 pt-1 text-stone-600 dark:text-stone-300">
+              <div className="flex justify-between">
+                <span>Room Rate ({quote.nights} night{quote.nights > 1 ? "s" : ""} × {quote.roomCount} room{quote.roomCount > 1 ? "s" : ""})</span>
+                <span className="font-mono text-stone-900 dark:text-white font-medium">
+                  {naira(quote.pricing.roomSubtotal / 100)}
+                </span>
+              </div>
+
+              {quote.addons.length > 0 &&
+                quote.addons.map((a) => (
+                  <div key={a.id} className="flex justify-between">
+                    <span>{a.name} × {a.qty}</span>
+                    <span className="font-mono text-stone-900 dark:text-white">
+                      {naira(a.total / 100)}
+                    </span>
+                  </div>
+                ))}
+
+              {quote.pricing.discountTotal > 0 && (
+                <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+                  <span>Discount {quote.promoCode ? `(${quote.promoCode})` : ""}</span>
+                  <span className="font-mono font-medium">
+                    −{naira(quote.pricing.discountTotal / 100)}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex justify-between text-stone-500">
+                <span>Service charge (5%)</span>
+                <span className="font-mono">{naira(quote.pricing.serviceCharge / 100)}</span>
+              </div>
+
+              <div className="flex justify-between text-stone-500">
+                <span>VAT &amp; Consumption Tax (7.5%)</span>
+                <span className="font-mono">{naira(quote.pricing.taxTotal / 100)}</span>
+              </div>
+            </div>
+
+            {/* Total */}
+            <div className="pt-3 border-t border-stone-200 dark:border-stone-800 flex items-baseline justify-between">
+              <div>
+                <span className="text-[11px] uppercase font-condensed tracking-wider text-stone-500 block">
+                  Total Amount
+                </span>
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  Full payment · No split balance
+                </span>
+              </div>
+              <span className="font-display text-2xl font-bold text-stone-900 dark:text-white">
+                {naira(quote.pricing.grandTotal / 100)}
+              </span>
+            </div>
+
             {quote.cancellationDeadline && (
-              <p className="text-[0.68rem] text-stone-500 dark:text-stone-400 pt-2 border-t border-[#ece6dd] dark:border-[#2e2b26]">
+              <div className="pt-3 border-t border-stone-100 dark:border-stone-800 text-[11px] text-stone-500 dark:text-stone-400 leading-relaxed">
                 {quote.cancellationPolicy === "non_refundable"
-                  ? "Non-refundable rate."
+                  ? "Non-refundable promotional rate."
                   : `Free cancellation until ${quote.cancellationDeadline}.`}
-              </p>
+              </div>
             )}
           </div>
         )}

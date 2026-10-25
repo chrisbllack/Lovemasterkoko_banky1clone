@@ -106,12 +106,15 @@ export async function POST(req: Request) {
 
     const updatedRes = await getReservationByReference(reservation.reference);
 
+    const effectivePaid = updatedRes ? updatedRes.pricing.amountPaid : (v.amount > 0 ? v.amount : reservation.pricing.grandTotal);
+    const effectiveBalance = updatedRes ? updatedRes.pricing.balanceDue : 0;
+
     return jsonOk({
       status: result.data.status,
       paymentStatus: result.data.paymentStatus,
       reference: reservation.reference,
-      amountPaid: v.amount,
-      balanceDue: Math.max(0, reservation.pricing.grandTotal - reservation.pricing.amountPaid - v.amount),
+      amountPaid: effectivePaid,
+      balanceDue: effectiveBalance,
       reservation: updatedRes
         ? {
             reference: updatedRes.reference,

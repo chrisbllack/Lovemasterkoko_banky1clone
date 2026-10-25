@@ -20,8 +20,9 @@ import {
   Copy,
   Check,
   Info,
+  MessageCircle,
 } from "lucide-react";
-import { HOTEL, naira } from "@/lib/hotel";
+import { HOTEL, naira, whatsappLink } from "@/lib/hotel";
 import { BookingItineraryCard } from "@/components/booking/BookingItineraryCard";
 import { generateItineraryPdf, type ItineraryData } from "@/lib/booking/itinerary-pdf";
 import { usePaymentSettings } from "@/lib/settings/usePaymentSettings";
@@ -48,6 +49,7 @@ export default function BookingConfirmationPage() {
   const [ref, setRef] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [isBankTransfer, setIsBankTransfer] = useState(false);
+  const [isWhatsApp, setIsWhatsApp] = useState(false);
   const [copiedBank, setCopiedBank] = useState(false);
   const pollsLeft = useRef(MAX_POLLS);
 
@@ -130,10 +132,18 @@ export default function BookingConfirmationPage() {
       return;
     }
 
+    if (method === "whatsapp") {
+      setIsWhatsApp(true);
+      setState("confirmed");
+      setMessage("Your reservation hold is locked! Reservation details have been sent to our 24/7 WhatsApp front desk team.");
+      void loadReservationDetails(urlRef);
+      return;
+    }
+
     if (method === "bank_transfer" || method === "front_desk" || method === "hotel") {
       setIsBankTransfer(true);
       setState("confirmed");
-      setMessage("Your reservation hold is locked! Please settle your stay deposit via bank transfer or at the front desk.");
+      setMessage("Your reservation hold is locked! Please settle your stay payment via bank transfer or at the front desk.");
       void loadReservationDetails(urlRef);
       return;
     }
@@ -228,7 +238,9 @@ export default function BookingConfirmationPage() {
           </div>
 
           <h1 className="font-display text-3xl sm:text-5xl text-white tracking-tight">
-            {isBankTransfer
+            {isWhatsApp
+              ? "Reservation Hold Secured"
+              : isBankTransfer
               ? "Reservation Hold Secured"
               : state === "confirmed"
               ? "Reservation Confirmed"
@@ -240,8 +252,10 @@ export default function BookingConfirmationPage() {
           </h1>
 
           <p className="text-sm sm:text-base text-stone-300 mt-3 max-w-xl mx-auto leading-relaxed">
-            {isBankTransfer
-              ? "Thank you for choosing Banky Hotel & Suites. Your room reservation is locked. Please transfer your stay deposit to our official hotel account or present payment at check-in."
+            {isWhatsApp
+              ? "Thank you for choosing Banky Hotel & Suites. Your room reservation hold is locked! Our front desk team on WhatsApp has your details ready for express check-in."
+              : isBankTransfer
+              ? "Thank you for choosing Banky Hotel & Suites. Your room reservation is locked. Please transfer your stay payment to our official hotel account or present payment at check-in."
               : state === "confirmed"
               ? "Thank you for choosing Banky Hotel & Suites. Your room is locked and payment is verified."
               : "We are validating your transaction with Paystack and securing your room reservation."}
@@ -252,6 +266,37 @@ export default function BookingConfirmationPage() {
       {/* Main Content Area */}
       <section className="py-10 sm:py-16">
         <div className="container-x max-w-4xl space-y-8">
+          {/* WHATSAPP NOTICE & ACTION CARD */}
+          {isWhatsApp && (
+            <div className="p-6 rounded-2xl bg-white dark:bg-[#1a1815] border border-emerald-300 dark:border-emerald-800/80 shadow-md space-y-4 print-hide">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-[#25D366]/20 text-[#25D366] flex items-center justify-center shrink-0">
+                    <MessageCircle className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-display text-lg text-stone-900 dark:text-white font-medium">
+                      WhatsApp Reservation Hold Active
+                    </h3>
+                    <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
+                      Your booking reference is <strong>{ref}</strong>. If you have not already sent your message, click below to chat with our 24/7 reception concierge on WhatsApp.
+                    </p>
+                  </div>
+                </div>
+
+                <a
+                  href={whatsappLink(`Hello Banky Hotel & Suites, following up on my reservation reference: ${ref}`)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-sm transition-all"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  <span>Chat on WhatsApp ({HOTEL.phone})</span>
+                </a>
+              </div>
+            </div>
+          )}
+
           {/* BANK TRANSFER NOTICE & DETAILS CARD */}
           {isBankTransfer && (
             <div className="p-6 rounded-2xl bg-white dark:bg-[#1a1815] border border-amber-300 dark:border-amber-800/80 shadow-md space-y-4 print-hide">
@@ -264,7 +309,7 @@ export default function BookingConfirmationPage() {
                     Direct Bank Transfer &amp; Front-Desk Settlement
                   </h3>
                   <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
-                    Please transfer your required deposit to the official Banky Hotel &amp; Suites account below. Include your reservation reference <strong>{ref}</strong> in the payment narration.
+                    Please transfer your total reservation payment to the official Banky Hotel &amp; Suites account below. Include your reservation reference <strong>{ref}</strong> in the payment narration.
                   </p>
                 </div>
               </div>
