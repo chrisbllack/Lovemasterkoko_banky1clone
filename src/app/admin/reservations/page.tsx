@@ -14,6 +14,8 @@ import {
   User,
   Mail,
   Hash,
+  Copy,
+  Check,
 } from "lucide-react";
 import { naira } from "@/lib/hotel";
 import type { Reservation } from "@/lib/booking/types";
@@ -35,8 +37,17 @@ export default function AdminReservations() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [authError, setAuthError] = useState(false);
+
+  const copyToClipboard = (text: string, id: string) => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2500);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -88,14 +99,15 @@ export default function AdminReservations() {
 
     if (!q) return true;
 
-    // Search filter across reference, guestName, guestEmail, room, and phone
+    // Search filter across reservation ID, booking reference, guestName, guestEmail, room, and phone
+    const idMatch = Boolean(r.id && r.id.toLowerCase().includes(q));
     const refMatch = Boolean(r.reference && r.reference.toLowerCase().includes(q));
     const nameMatch = Boolean(r.guestName && r.guestName.toLowerCase().includes(q));
     const emailMatch = Boolean(r.guestEmail && r.guestEmail.toLowerCase().includes(q));
     const roomMatch = Boolean(r.roomTypeName && r.roomTypeName.toLowerCase().includes(q));
     const phoneMatch = Boolean((r as any).guestPhone && String((r as any).guestPhone).toLowerCase().includes(q));
 
-    return refMatch || nameMatch || emailMatch || roomMatch || phoneMatch;
+    return idMatch || refMatch || nameMatch || emailMatch || roomMatch || phoneMatch;
   });
 
   if (authError) {
@@ -152,8 +164,8 @@ export default function AdminReservations() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by guest name, email, or booking reference (e.g. BK-)..."
-              aria-label="Search reservations by guest name, email, or booking reference"
+              placeholder="Filter by guest name or reservation ID (e.g. Adebayo, BK-2026, or doc ID)..."
+              aria-label="Filter reservations by guest name or reservation ID"
               className="w-full pl-10 pr-9 py-2.5 text-sm bg-stone-50 dark:bg-[#232019] border border-stone-200 dark:border-stone-700 rounded-lg outline-none focus:ring-2 focus:ring-[var(--accent)] text-stone-900 dark:text-white placeholder:text-stone-400 transition-all"
             />
             {search && (
@@ -257,7 +269,7 @@ export default function AdminReservations() {
             <table className="w-full text-sm">
               <thead className="bg-[#f8f5f0] dark:bg-[#232019] border-b border-[#ece6dd] dark:border-[#2e2b26]">
                 <tr>
-                  {["Reference", "Guest", "Room", "Dates", "Total", "Status", "Payment", "Actions"].map((h) => (
+                  {["Reservation ID / Ref", "Guest", "Room", "Dates", "Total", "Status", "Payment", "Actions"].map((h) => (
                     <th key={h} className="text-left p-3.5 font-condensed uppercase tracking-wider text-xs text-[#666] dark:text-stone-400">
                       {h}
                     </th>
@@ -267,8 +279,42 @@ export default function AdminReservations() {
               <tbody className="divide-y divide-[#ece6dd]/60 dark:divide-[#2e2b26]/60">
                 {filtered.map((r) => (
                   <tr key={r.id} className="hover:bg-stone-50/50 dark:hover:bg-stone-900/40 transition-colors align-top">
-                    <td className="p-3.5 font-mono font-semibold text-stone-900 dark:text-white whitespace-nowrap">
-                      {r.reference}
+                    <td className="p-3.5 font-mono text-stone-900 dark:text-white whitespace-nowrap">
+                      <div className="font-semibold text-sm flex items-center gap-1.5">
+                        <span>{r.reference}</span>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(r.reference, `ref-${r.id}`)}
+                          title="Copy booking reference"
+                          className="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors cursor-pointer"
+                        >
+                          {copiedId === `ref-${r.id}` ? (
+                            <Check className="h-3 w-3 text-emerald-500" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </button>
+                      </div>
+                      {r.id && (
+                        <div className="mt-0.5 flex items-center gap-1 text-[11px] text-stone-500 dark:text-stone-400 font-normal">
+                          <span className="text-stone-400 text-[10px] uppercase font-condensed">ID:</span>
+                          <span className="truncate max-w-[130px] font-mono select-all" title={r.id}>
+                            {r.id}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(r.id, `id-${r.id}`)}
+                            title="Copy Firestore reservation ID"
+                            className="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors cursor-pointer"
+                          >
+                            {copiedId === `id-${r.id}` ? (
+                              <Check className="h-2.5 w-2.5 text-emerald-500" />
+                            ) : (
+                              <Copy className="h-2.5 w-2.5" />
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </td>
                     <td className="p-3.5 text-stone-800 dark:text-stone-200">
                       <div className="font-medium">{r.guestName}</div>

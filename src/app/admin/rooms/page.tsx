@@ -1,10 +1,11 @@
 "use client";
 import { useState, useRef, useMemo } from "react";
 import { ROOMS, naira } from "@/lib/hotel";
-import { Upload, CheckCircle2, Loader2, Video, Play, X, ExternalLink, Film } from "lucide-react";
+import { Upload, CheckCircle2, Loader2, Video, Play, Pause, Maximize2, X, ExternalLink, Film, Save } from "lucide-react";
 import Link from "next/link";
 import { RoomSortDropdown, type RoomSortOption } from "@/components/admin/RoomSortDropdown";
 import { VideoStitcherModal } from "@/components/admin/VideoStitcherModal";
+import { RoomVideoUploadModal } from "@/components/admin/RoomVideoUploadModal";
 
 export default function AdminRooms() {
   const [uploadingSlug, setUploadingSlug] = useState<string | null>(null);
@@ -15,11 +16,71 @@ export default function AdminRooms() {
   const [previewVideo, setPreviewVideo] = useState<{ name: string; url: string; slug: string } | null>(null);
   const [videoTimestamp, setVideoTimestamp] = useState<number>(Date.now());
   const [cardViewMode, setCardViewMode] = useState<Record<string, "video" | "photo">>({});
+  const [playingVideoSlugs, setPlayingVideoSlugs] = useState<Record<string, boolean>>({});
+  const [loadingVideoSlugs, setLoadingVideoSlugs] = useState<Record<string, boolean>>({});
   const [stitcherOpen, setStitcherOpen] = useState(false);
   const [stitcherDefaultSlug, setStitcherDefaultSlug] = useState("standard-plus");
+  const [videoModalOpen, setVideoModalOpen] = useState(false);
+  const [videoModalSlug, setVideoModalSlug] = useState("luxury-suite");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const selectedSlugRef = useRef<string>("deluxe");
+
+  const handleTogglePlayback = (slug: string, container: HTMLElement | null) => {
+    if (cardViewMode[slug] === "photo") {
+      setCardViewMode((prev) => ({ ...prev, [slug]: "video" }));
+      setTimeout(() => {
+        const card = container || document.querySelector(`[data-room-card="${slug}"]`);
+        const video = card?.querySelector("video");
+        if (video) {
+          video.muted = true;
+          const playPromise = video.play();
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                setPlayingVideoSlugs((prev) => ({ ...prev, [slug]: true }));
+              })
+              .catch((err) => {
+                console.warn("Autoplay deferred, retrying muted:", err);
+                video.muted = true;
+                video.play().catch(() => {});
+              });
+          }
+        }
+      }, 50);
+      return;
+    }
+
+    const card = container || document.querySelector(`[data-room-card="${slug}"]`);
+    const video = card?.querySelector("video");
+    if (!video) return;
+
+    if (video.paused) {
+      video.muted = true;
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setPlayingVideoSlugs((prev) => ({ ...prev, [slug]: true }));
+          })
+          .catch((err) => {
+            console.warn("Playback initialization error, retrying muted:", err);
+            video.muted = true;
+            const retry = video.play();
+            if (retry !== undefined) {
+              retry
+                .then(() => {
+                  setPlayingVideoSlugs((prev) => ({ ...prev, [slug]: true }));
+                })
+                .catch(() => {});
+            }
+          });
+      }
+    } else {
+      video.pause();
+      setPlayingVideoSlugs((prev) => ({ ...prev, [slug]: false }));
+    }
+  };
 
   const sortedRooms = useMemo(() => {
     const list = [...ROOMS];
@@ -193,8 +254,9 @@ export default function AdminRooms() {
         {sortedRooms.map((room) => {
           const videoSrc = `/videos/${room.slug}-room.mp4?t=${videoTimestamp}`;
           const isPhotoOnly = cardViewMode[room.slug] === "photo";
+          const isVideoPlaying = !isPhotoOnly && !!playingVideoSlugs[room.slug];
           return (
-            <div key={room.slug} className="bg-white border border-[#ece6dd] rounded-2xl overflow-hidden shadow-sm flex flex-col hover:border-amber-400/60 transition-all">
+            <div key={room.slug} data-room-card={room.slug} className="bg-white border border-[#ece6dd] rounded-2xl overflow-hidden shadow-sm flex flex-col hover:border-amber-400/60 transition-all">
               <div className="relative h-52 w-full bg-stone-900 group overflow-hidden">
                 {/* Baseline Room Photo Backdrop */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -216,23 +278,80 @@ export default function AdminRooms() {
                     playsInline
                     crossOrigin="anonymous"
                     preload="auto"
+                    onLoadStart={() => {
+                      setLoadingVideoSlugs((prev) => ({ ...prev, [room.slug]: true }));
+                    }}
+                    onWaiting={() => {
+                      setLoadingVideoSlugs((prev) => ({ ...prev, [room.slug]: true }));
+                    }}
+                    onLoadedMetadata={(e) => {
+                      setLoadingVideoSlugs((prev) => ({ ...prev, [room.slug]: false }));
+                      const video = e.currentTarget;
+                      video.muted = true;
+                      const playPromise = video.play();
+                      if (playPromise !== undefined) {
+                        playPromise
+                          .then(() => {
+                            setPlayingVideoSlugs((prev) => ({ ...prev, [room.slug]: true }));
+                          })
+                          .catch((err) => {
+                            console.warn("Autoplay deferred for " + room.slug, err);
+                            video.muted = true;
+                            video.play().catch(() => {});
+                          });
+                      }
+                    }}
+                    onCanPlay={(e) => {
+                      setLoadingVideoSlugs((prev) => ({ ...prev, [room.slug]: false }));
+                      const video = e.currentTarget;
+                      if (video.paused) {
+                        video.muted = true;
+                        const playPromise = video.play();
+                        if (playPromise !== undefined) {
+                          playPromise
+                            .then(() => {
+                              setPlayingVideoSlugs((prev) => ({ ...prev, [room.slug]: true }));
+                            })
+                            .catch(() => {});
+                        }
+                      }
+                    }}
+                    onPlay={() => {
+                      setLoadingVideoSlugs((prev) => ({ ...prev, [room.slug]: false }));
+                      setPlayingVideoSlugs((prev) => ({ ...prev, [room.slug]: true }));
+                    }}
+                    onPause={() => {
+                      setPlayingVideoSlugs((prev) => ({ ...prev, [room.slug]: false }));
+                    }}
+                    onError={(e) => {
+                      setLoadingVideoSlugs((prev) => ({ ...prev, [room.slug]: false }));
+                      const video = e.currentTarget;
+                      if (video.src.includes("-room.mp4")) {
+                        video.src = `/videos/${room.slug}.mp4?t=${videoTimestamp}`;
+                        video.load();
+                        const p = video.play();
+                        if (p !== undefined) p.catch(() => {});
+                      }
+                    }}
                     className="relative z-10 w-full h-full object-cover"
                   >
                     <source src={videoSrc} type="video/mp4" />
                     <source src={`/videos/${room.slug}.mp4?t=${videoTimestamp}`} type="video/mp4" />
+                    <source src={`/public/videos/${room.slug}-room.mp4?t=${videoTimestamp}`} type="video/mp4" />
                   </video>
                 )}
 
                 {/* Top Video Status Badge & View Mode Toggle */}
                 <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/75 backdrop-blur-md border border-white/20 text-[10px] font-condensed uppercase tracking-wider text-amber-300 font-semibold shadow-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>{!isPhotoOnly ? "Video Header Active" : "Still Photo"}</span>
+                  <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-full bg-black/75 backdrop-blur-md border border-white/20 text-[9px] sm:text-[10px] font-condensed uppercase tracking-wider text-amber-300 font-semibold shadow-sm">
+                    <span className={`w-1.5 h-1.5 rounded-full ${isVideoPlaying ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
+                    <span className="hidden xs:inline">{!isPhotoOnly ? (isVideoPlaying ? "Video Playing" : "Video Ready") : "Still Photo"}</span>
+                    <span className="xs:hidden">{!isPhotoOnly ? "Live" : "Photo"}</span>
                   </span>
                 </div>
 
-                {/* Top Right Actions: Photo/Video Toggle & Modal Preview */}
-                <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5">
+                {/* Top Right Actions: Photo/Video Toggle, Play/Pause Toggle & Modal Preview */}
+                <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1 sm:gap-1.5">
                   <button
                     type="button"
                     onClick={() =>
@@ -241,21 +360,56 @@ export default function AdminRooms() {
                         [room.slug]: prev[room.slug] === "photo" ? "video" : "photo",
                       }))
                     }
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/75 hover:bg-black/90 backdrop-blur-md border border-white/20 text-[10px] font-condensed uppercase tracking-wider text-stone-200 hover:text-white transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded-full bg-black/75 hover:bg-black/90 backdrop-blur-md border border-white/20 text-[9px] sm:text-[10px] font-condensed uppercase tracking-wider text-stone-200 hover:text-white transition-colors cursor-pointer shrink-0"
                     title={isPhotoOnly ? "Switch to Video Header preview" : "Switch to Photo view"}
                   >
-                    <span>{isPhotoOnly ? "Show Video" : "Show Photo"}</span>
+                    <span className="hidden xs:inline">{isPhotoOnly ? "Show Video" : "Show Photo"}</span>
+                    <span className="xs:hidden">{isPhotoOnly ? "Video" : "Photo"}</span>
                   </button>
 
+                  <div className="relative inline-flex items-center justify-center shrink-0">
+                    {!isPhotoOnly && loadingVideoSlugs[room.slug] && (
+                      <span className="absolute -inset-0.5 rounded-full bg-amber-400/25 animate-pulse pointer-events-none" />
+                    )}
+                    <button
+                      id={`admin-room-playback-${room.slug}`}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const card = e.currentTarget.closest("[data-room-card]") as HTMLElement | null;
+                        handleTogglePlayback(room.slug, card);
+                      }}
+                      className="relative inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-full bg-black/75 hover:bg-black/90 backdrop-blur-md border border-white/20 text-[9px] sm:text-[10px] font-condensed tracking-wider uppercase text-amber-300 hover:text-amber-200 transition-colors shadow-sm cursor-pointer shrink-0"
+                      title={isVideoPlaying ? "Pause active room video header" : "Play active room video header"}
+                      aria-label={isVideoPlaying ? "Pause active room video header" : "Play active room video header"}
+                    >
+                      {!isPhotoOnly && loadingVideoSlugs[room.slug] ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin text-amber-300" />
+                          <span className="hidden sm:inline">Loading...</span>
+                        </>
+                      ) : isVideoPlaying ? (
+                        <>
+                          <Pause className="h-3 w-3 text-amber-300" />
+                          <span>Pause</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-3 w-3 fill-amber-300 text-amber-300" />
+                          <span>Play</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
                   <button
-                    id="video-playback-toggle"
                     type="button"
                     onClick={() => setPreviewVideo({ name: room.name, url: videoSrc, slug: room.slug })}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/75 hover:bg-black/90 backdrop-blur-md border border-white/20 text-[10px] font-condensed uppercase tracking-wider text-amber-300 hover:text-amber-200 transition-colors shadow-sm cursor-pointer"
-                    title="Play or preview active video header in theater view"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/75 hover:bg-black/90 backdrop-blur-md border border-white/20 text-[10px] font-condensed uppercase tracking-wider text-stone-300 hover:text-white transition-colors cursor-pointer"
+                    title="Enlarge video header in theater view"
                   >
-                    <Play className="h-3 w-3 fill-amber-300 text-amber-300" />
-                    <span>Play/Enlarge</span>
+                    <Maximize2 className="h-3 w-3" />
+                    <span className="hidden sm:inline">Theater</span>
                   </button>
                 </div>
 
@@ -275,22 +429,15 @@ export default function AdminRooms() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => triggerVideoUpload(room.slug)}
-                    disabled={uploadingVideoSlug === room.slug}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-600/90 hover:bg-amber-600 text-white text-xs font-medium backdrop-blur-sm transition-all cursor-pointer shadow-md disabled:opacity-60"
-                    title={`Upload/replace video tour for ${room.name} into /public/videos`}
+                    onClick={() => {
+                      setVideoModalSlug(room.slug);
+                      setVideoModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-black text-xs font-bold backdrop-blur-sm transition-all cursor-pointer shadow-md"
+                    title={`Select, preview, and save the active video header for ${room.name}`}
                   >
-                    {uploadingVideoSlug === room.slug ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Video className="h-3.5 w-3.5" />
-                        <span>Upload Video</span>
-                      </>
-                    )}
+                    <Save className="h-3.5 w-3.5" />
+                    <span>Upload &amp; Save Video</span>
                   </button>
                   <button
                     type="button"
@@ -367,10 +514,23 @@ export default function AdminRooms() {
                 controls
                 loop
                 playsInline
+                crossOrigin="anonymous"
+                onLoadedMetadata={(e) => {
+                  const video = e.currentTarget;
+                  const playPromise = video.play();
+                  if (playPromise !== undefined) {
+                    playPromise.catch((err) => {
+                      console.warn("Modal autoplay deferred, muted retry:", err);
+                      video.muted = true;
+                      video.play().catch(() => {});
+                    });
+                  }
+                }}
                 className="w-full h-full object-cover"
               >
                 <source src={previewVideo.url} type="video/mp4" />
                 <source src={previewVideo.url.replace("-room.mp4", ".mp4")} type="video/mp4" />
+                <source src={`/public/videos/${previewVideo.slug}-room.mp4`} type="video/mp4" />
               </video>
             </div>
             <div className="p-4 bg-stone-900/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-stone-800">
@@ -382,11 +542,18 @@ export default function AdminRooms() {
                   id="video-modal-playback-toggle"
                   type="button"
                   onClick={(e) => {
-                    const modal = e.currentTarget.closest(".max-w-3xl");
+                    const modal = e.currentTarget.closest(".bg-stone-900") || e.currentTarget.closest(".fixed");
                     const video = modal?.querySelector("video");
                     if (video) {
                       if (video.paused) {
-                        video.play().catch(() => {});
+                        const playPromise = video.play();
+                        if (playPromise !== undefined) {
+                          playPromise.catch((err) => {
+                            console.warn("Modal play promise failed, retrying muted:", err);
+                            video.muted = true;
+                            video.play().catch(() => {});
+                          });
+                        }
                       } else {
                         video.pause();
                       }
@@ -432,6 +599,20 @@ export default function AdminRooms() {
           setVideoTimestamp(Date.now());
           setRecentlyUpdatedSlugs((prev) => [slug, ...prev.filter((s) => s !== slug)]);
           setSuccessMsg(`Successfully stitched video header for ${slug}!`);
+          setTimeout(() => setSuccessMsg(null), 5000);
+        }}
+      />
+
+      {/* Room Video Header Upload & Save Modal */}
+      <RoomVideoUploadModal
+        isOpen={videoModalOpen}
+        onClose={() => setVideoModalOpen(false)}
+        defaultSlug={videoModalSlug}
+        onSaveComplete={({ slug }) => {
+          setVideoTimestamp(Date.now());
+          setRecentlyUpdatedSlugs((prev) => [slug, ...prev.filter((s) => s !== slug)]);
+          setCardViewMode((prev) => ({ ...prev, [slug]: "video" }));
+          setSuccessMsg(`Successfully saved and activated main video header for ${slug}!`);
           setTimeout(() => setSuccessMsg(null), 5000);
         }}
       />

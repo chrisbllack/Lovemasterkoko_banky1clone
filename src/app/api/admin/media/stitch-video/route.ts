@@ -17,7 +17,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const formData = await req.formData();
-    const slug = (formData.get("slug") as string | null) || "presidential-suite";
+    let slug = (formData.get("slug") as string | null) || "luxury";
+    if (slug === "presidential-suite" || slug === "luxury-suite") slug = "luxury";
     const transition = (formData.get("transition") as string | null) || "crossfade";
     const colorGrade = (formData.get("colorGrade") as string | null) || "warm_luxury";
     const conversionMode = (formData.get("conversionMode") as string | null) || "crop_fill";

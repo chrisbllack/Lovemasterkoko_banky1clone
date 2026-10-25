@@ -2,6 +2,7 @@
 import { useState, useCallback, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Loader2,
   Lock,
@@ -31,14 +32,25 @@ import { usePaymentSettings } from "@/lib/settings/usePaymentSettings";
 /* ------------------------------------------------------------------ */
 
 async function api<T>(url: string, body?: unknown): Promise<{ ok: true; data: T } | { ok: false; error: BookingErrorCode; message: string }> {
-  const res = await fetch(url, {
-    method: body !== undefined ? "POST" : "GET",
-    headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-  const json = await res.json();
-  if (json.ok) return json as { ok: true; data: T };
-  return json as { ok: false; error: BookingErrorCode; message: string };
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    const res = await fetch(url, {
+      method: body !== undefined ? "POST" : "GET",
+      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    const json = await res.json();
+    if (json.ok) return json as { ok: true; data: T };
+    return json as { ok: false; error: BookingErrorCode; message: string };
+  } catch (err: any) {
+    if (err?.name === "AbortError") {
+      return { ok: false, error: "INTERNAL_ERROR" as BookingErrorCode, message: "Request timed out. Please try again." };
+    }
+    return { ok: false, error: "INTERNAL_ERROR" as BookingErrorCode, message: err?.message || "Network request failed. Please check your connection." };
+  }
 }
 
 type SearchParams = { checkIn: string; checkOut: string; adults: number; children: number; roomCount: number };
@@ -152,25 +164,40 @@ function BookingFlow() {
   const runSearch = useCallback(async () => {
     setSearching(true);
     setError(null);
-    const res = await api<AvailabilityResult>("/api/booking/search", {
-      checkIn,
-      checkOut,
-      adults,
-      children,
-      roomCount,
-    });
-    setSearching(false);
-    if (!res.ok) {
-      setError(res.message);
-      setSearch(null);
-      return;
-    }
-    setSearch(res.data);
-    setQuote(null);
-    if (res.data.rooms.every((r) => r.available <= 0)) {
-      setError("No rooms are available for these dates. Please try different dates.");
-    } else {
-      setStep(1);
+    try {
+      const res = await api<AvailabilityResult>("/api/booking/search", {
+        checkIn,
+        checkOut,
+        adults,
+        children,
+        roomCount,
+      });
+      if (!res.ok) {
+        setError(res.message);
+        setSearch(null);
+        return;
+      }
+      setSearch(res.data);
+      setQuote(null);
+      setQuoteId(null);
+      if (res.data.rooms.every((r) => r.available <= 0)) {
+        setError("No rooms are available for these dates. Please try different dates.");
+      } else {
+        setStep(1);
+        setMaxStepReached((prev) => Math.max(prev, 1));
+        if (typeof window !== "undefined") {
+          const container = document.getElementById("booking-flow-container");
+          if (container) {
+            const rect = container.getBoundingClientRect();
+            const targetY = window.pageYOffset + rect.top - 145;
+            window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
+          }
+        }
+      }
+    } catch (err: any) {
+      setError(err?.message || "Search failed. Please try again.");
+    } finally {
+      setSearching(false);
     }
   }, [checkIn, checkOut, adults, children, roomCount]);
 
@@ -185,28 +212,42 @@ function BookingFlow() {
     async (roomTypeId: string) => {
       setBusy(true);
       setError(null);
-      const addonIds = Object.entries(addonSelection)
-        .filter(([, qty]) => qty > 0)
-        .map(([id, qty]) => ({ id, qty }));
-      const res = await api<{ quote: BookingQuote; quoteId: string }>("/api/booking/quote", {
-        roomTypeId,
-        ratePlanId,
-        checkIn,
-        checkOut,
-        adults,
-        children,
-        roomCount,
-        promoCode: promoInput || undefined,
-        addonIds,
-      });
-      setBusy(false);
-      if (!res.ok) {
-        setError(res.message);
-        return;
+      try {
+        const addonIds = Object.entries(addonSelection)
+          .filter(([, qty]) => qty > 0)
+          .map(([id, qty]) => ({ id, qty }));
+        const res = await api<{ quote: BookingQuote; quoteId: string }>("/api/booking/quote", {
+          roomTypeId,
+          ratePlanId: ratePlanId || "flexible",
+          checkIn,
+          checkOut,
+          adults,
+          children,
+          roomCount,
+          promoCode: promoInput || undefined,
+          addonIds,
+        });
+        if (!res.ok) {
+          setError(res.message);
+          return;
+        }
+        setQuote(res.data.quote);
+        setQuoteId(res.data.quoteId);
+        setStep(2);
+        setMaxStepReached((prev) => Math.max(prev, 2));
+        if (typeof window !== "undefined") {
+          const container = document.getElementById("booking-flow-container");
+          if (container) {
+            const rect = container.getBoundingClientRect();
+            const targetY = window.pageYOffset + rect.top - 145;
+            window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
+          }
+        }
+      } catch (err: any) {
+        setError(err?.message || "Failed to calculate room pricing. Please try again.");
+      } finally {
+        setBusy(false);
       }
-      setQuote(res.data.quote);
-      setQuoteId(res.data.quoteId);
-      setStep(2);
     },
     [addonSelection, checkIn, checkOut, adults, children, roomCount, promoInput, ratePlanId],
   );
@@ -216,53 +257,127 @@ function BookingFlow() {
       if (!quote) return;
       setBusy(true);
       setError(null);
-      const addonIds = Object.entries(addonSelection)
-        .filter(([, qty]) => qty > 0)
-        .map(([id, qty]) => ({ id, qty }));
-      const res = await api<{ quote: BookingQuote; quoteId: string }>("/api/booking/quote", {
-        roomTypeId: quote.roomTypeId,
-        ratePlanId: quote.ratePlanId,
-        checkIn,
-        checkOut,
-        adults,
-        children,
-        roomCount,
-        promoCode: withPromo || undefined,
-        addonIds,
-      });
-      setBusy(false);
-      if (res.ok) {
-        setQuote(res.data.quote);
-        setQuoteId(res.data.quoteId);
-      } else {
-        setError(res.message);
+      try {
+        const addonIds = Object.entries(addonSelection)
+          .filter(([, qty]) => qty > 0)
+          .map(([id, qty]) => ({ id, qty }));
+        const res = await api<{ quote: BookingQuote; quoteId: string }>("/api/booking/quote", {
+          roomTypeId: quote.roomTypeId,
+          ratePlanId: quote.ratePlanId || ratePlanId || "flexible",
+          checkIn,
+          checkOut,
+          adults,
+          children,
+          roomCount,
+          promoCode: withPromo || undefined,
+          addonIds,
+        });
+        if (res.ok) {
+          setQuote(res.data.quote);
+          setQuoteId(res.data.quoteId);
+        } else {
+          setError(res.message);
+        }
+      } catch (err: any) {
+        setError(err?.message || "Failed to refresh pricing.");
+      } finally {
+        setBusy(false);
       }
     },
-    [quote, addonSelection, checkIn, checkOut, adults, children, roomCount],
+    [quote, addonSelection, checkIn, checkOut, adults, children, roomCount, ratePlanId],
   );
 
   const createBooking = useCallback(async () => {
-    if (!quoteId) return;
-    setBusy(true);
-    setError(null);
-    const idempotencyKey = crypto.randomUUID();
-    const res = await api<{ reservationId: string; reference: string; pricing: BookingQuote["pricing"] }>(
-      "/api/booking/create",
-      { quoteId, guest: { name, email, phone }, requests, idempotencyKey },
-    );
-    setBusy(false);
-    if (!res.ok) {
-      setError(res.message);
-      if (res.error === "ROOM_UNAVAILABLE") {
-        setStep(1);
-        setQuote(null);
-      }
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPhone = phone.trim();
+
+    if (!trimmedName || !trimmedEmail || !trimmedPhone) {
+      setError("Please provide your name, email address, and phone number.");
       return;
     }
-    setReservationId(res.data.reservationId);
-    setReference(res.data.reference);
-    setStep(3);
-  }, [quoteId, name, email, phone, requests]);
+
+    setBusy(true);
+    setError(null);
+
+    try {
+      // If quoteId was lost but quote data exists, re-acquire active quote
+      let activeQuoteId = quoteId;
+      if (!activeQuoteId && quote) {
+        const qRes = await api<{ quote: BookingQuote; quoteId: string }>("/api/booking/quote", {
+          roomTypeId: quote.roomTypeId,
+          ratePlanId: quote.ratePlanId || ratePlanId || "flexible",
+          checkIn,
+          checkOut,
+          adults,
+          children,
+          roomCount,
+          promoCode: promoInput || undefined,
+        });
+        if (qRes.ok) {
+          activeQuoteId = qRes.data.quoteId;
+          setQuote(qRes.data.quote);
+          setQuoteId(qRes.data.quoteId);
+        } else {
+          setError(qRes.message || "Failed to secure room pricing. Please select a room again.");
+          setStep(1);
+          return;
+        }
+      }
+
+      if (!activeQuoteId) {
+        setError("Your booking session has expired. Please choose a room to continue.");
+        setStep(1);
+        return;
+      }
+
+      // Safe cross-platform UUID fallback
+      const idempotencyKey =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `idemp_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+
+      const res = await api<{ reservationId: string; reference: string; pricing: BookingQuote["pricing"] }>(
+        "/api/booking/create",
+        {
+          quoteId: activeQuoteId,
+          guest: { name: trimmedName, email: trimmedEmail, phone: trimmedPhone },
+          requests: requests.trim() || undefined,
+          idempotencyKey,
+        },
+      );
+
+      if (!res.ok) {
+        setError(res.message);
+        if (res.error === "ROOM_UNAVAILABLE" || res.error === "QUOTE_EXPIRED") {
+          setStep(1);
+          setQuote(null);
+          setQuoteId(null);
+        }
+        return;
+      }
+
+      setReservationId(res.data.reservationId);
+      setReference(res.data.reference);
+      setStep(3);
+      setMaxStepReached((prev) => Math.max(prev, 3));
+
+      // Smooth scroll to top of booking flow container
+      if (typeof window !== "undefined") {
+        const container = document.getElementById("booking-flow-container");
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          const targetY = window.pageYOffset + rect.top - 145;
+          window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
+        }
+      }
+    } catch (err: any) {
+      console.error("Booking creation error:", err);
+      setError(err?.message || "Failed to create reservation. Please check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }, [quoteId, quote, name, email, phone, requests, ratePlanId, checkIn, checkOut, adults, children, roomCount, promoInput]);
 
   const payNow = useCallback(async () => {
     if (!reservationId) return;
@@ -620,34 +735,7 @@ function BookingFlow() {
               </div>
             </div>
 
-            {ratePlans.length > 1 && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {ratePlans.map((p) => {
-                  const selected = ratePlanId === p.id;
-                  const badge =
-                    p.priceModifier.type === "percent" && p.priceModifier.value < 0
-                      ? `Save ${Math.abs(p.priceModifier.value)}%`
-                      : p.depositPercent >= 100
-                        ? "Pay in full"
-                        : `${p.depositPercent}% deposit`;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setRatePlanId(p.id)}
-                      aria-pressed={selected}
-                      className={`text-left p-4 rounded-lg border transition-all ${selected ? "border-[var(--accent)] bg-[var(--accent)]/5 shadow-sm" : "border-[#ece6dd] hover:border-[var(--accent)]/50"}`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-medium text-stone-900 dark:text-white">{p.name}</span>
-                        <span className={`text-[0.65rem] font-condensed uppercase tracking-wider px-1.5 py-0.5 rounded ${selected ? "bg-[var(--accent)] text-white" : "bg-stone-100 dark:bg-stone-800 text-stone-500"}`}>{badge}</span>
-                      </div>
-                      {p.description && <p className="text-[0.68rem] text-stone-500 dark:text-stone-400 mt-1.5 line-clamp-2">{p.description}</p>}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+
             <button
               type="button"
               onClick={runSearch}
@@ -677,7 +765,14 @@ function BookingFlow() {
             )}
             {search.rooms.map((r) => (
               <div key={r.roomType.id} className={`glass p-5 rounded-md border ${r.available > 0 ? "border-[#ece6dd]" : "border-[#ece6dd]/50 opacity-60"} flex gap-4`}>
-                <img src={encodeURI(r.roomType.image)} alt={r.roomType.name} className="hidden sm:block w-28 h-28 object-cover rounded-xl" />
+                <Image
+                  src={r.roomType.image}
+                  alt={r.roomType.name}
+                  width={112}
+                  height={112}
+                  referrerPolicy="no-referrer"
+                  className="hidden sm:block w-28 h-28 object-cover rounded-xl"
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <h4 className="font-display text-lg text-stone-900 dark:text-white">{r.roomType.name}</h4>
@@ -760,6 +855,14 @@ function BookingFlow() {
                 <button type="button" onClick={() => refreshQuote()} className="btn-gold w-full py-2.5 text-xs font-medium">
                   {busy ? "Recalculating…" : "Apply extras & update price"}
                 </button>
+              </div>
+            )}
+
+            {/* Inline Error display in Step 2 */}
+            {error && (
+              <div role="alert" className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200">
+                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <p>{error}</p>
               </div>
             )}
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useCallback, useState, useRef } from "react";
+import NextImage from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -536,14 +537,18 @@ export function RoomPhotoLightbox({
                   : "zoom-in",
               }}
             >
-              <img
+              <NextImage
                 ref={imageRef}
                 id="lightbox-active-image"
-                src={encodeURI(currentImg)}
+                src={currentImg}
                 alt={`${roomName} - View ${currentIndex + 1}`}
+                width={1600}
+                height={1000}
+                priority
+                referrerPolicy="no-referrer"
                 onClick={handleImageClick}
                 draggable={false}
-                className="max-h-[72vh] sm:max-h-[78vh] max-w-[92vw] object-contain rounded-xl shadow-2xl select-none"
+                className="max-h-[72vh] sm:max-h-[78vh] max-w-[92vw] w-auto h-auto object-contain rounded-xl shadow-2xl select-none"
               />
             </div>
           </div>
@@ -577,10 +582,13 @@ export function RoomPhotoLightbox({
                 className="absolute bottom-4 left-4 z-30 hidden sm:block pointer-events-none"
               >
                 <div className="relative w-32 aspect-[16/11] rounded-lg overflow-hidden border border-amber-400/50 bg-black/80 backdrop-blur-md shadow-2xl p-0.5">
-                  <img
-                    src={encodeURI(currentImg)}
+                  <NextImage
+                    src={currentImg}
                     alt="Inspection Minimap"
-                    className="w-full h-full object-cover rounded opacity-70"
+                    fill
+                    sizes="128px"
+                    referrerPolicy="no-referrer"
+                    className="object-cover rounded opacity-70"
                   />
                   {/* Viewport Indicator Rectangle */}
                   <div
@@ -628,11 +636,14 @@ export function RoomPhotoLightbox({
                         : "opacity-60 hover:opacity-100 border border-white/20"
                     }`}
                   >
-                    <div className="w-14 sm:w-16 aspect-[4/3]">
-                      <img
-                        src={encodeURI(img)}
+                    <div className="w-14 sm:w-16 aspect-[4/3] relative">
+                      <NextImage
+                        src={img}
                         alt={`Thumbnail ${idx + 1}`}
-                        className="w-full h-full object-cover"
+                        fill
+                        sizes="64px"
+                        referrerPolicy="no-referrer"
+                        className="object-cover"
                       />
                     </div>
                     <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-black/80 text-[9px] font-mono text-white/90">

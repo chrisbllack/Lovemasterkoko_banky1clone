@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ArrowRight, Play, Pause, Volume2, VolumeX } from "lucide-react";
+import { ArrowRight, Play, Pause, Volume2, VolumeX, Loader2 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /*  Dynamic imports — below-fold sections load only when scrolled to    */
@@ -23,25 +23,46 @@ function HeroVideoHeader() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
+  const [videoLoaded, setVideoLoaded] = useState(false);
 
   useEffect(() => {
     if (videoRef.current) {
-      videoRef.current.play().catch(() => {
-        if (videoRef.current) {
-          videoRef.current.muted = true;
-          videoRef.current.play().catch(() => {});
-        }
-      });
+      videoRef.current.muted = true;
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsPlaying(true);
+            setVideoLoaded(true);
+          })
+          .catch(() => {
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+              videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+            }
+          });
+      }
     }
   }, []);
 
   const togglePlay = () => {
-    if (!videoRef.current) return;
-    if (videoRef.current.paused) {
-      videoRef.current.play();
-      setIsPlaying(true);
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      const p = video.play();
+      if (p !== undefined) {
+        p.then(() => setIsPlaying(true)).catch((err) => {
+          console.warn("Home hero play deferred, muted retry:", err);
+          video.muted = true;
+          setIsMuted(true);
+          const p2 = video.play();
+          if (p2 !== undefined) {
+            p2.then(() => setIsPlaying(true)).catch(() => {});
+          }
+        });
+      }
     } else {
-      videoRef.current.pause();
+      video.pause();
       setIsPlaying(false);
     }
   };
@@ -53,15 +74,34 @@ function HeroVideoHeader() {
   };
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-black">
+    <div id="video-header-container" data-video-header="true" className="video-header-container absolute inset-0 overflow-hidden bg-black">
+      {/* Baseline Hero Image Backdrop — renders immediately as the first visual on the page */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/images/exterior-night.jpg"
+        alt="Banky Hotel & Suites Exterior"
+        className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
+      />
+
       <video
         ref={videoRef}
+        poster="/images/exterior-night.jpg"
         autoPlay
         loop
         muted
         playsInline
         preload="auto"
-        className="w-full h-full object-cover select-none"
+        onLoadStart={() => setVideoLoaded(false)}
+        onWaiting={() => setVideoLoaded(false)}
+        onLoadedData={() => setVideoLoaded(true)}
+        onCanPlay={() => setVideoLoaded(true)}
+        onPlaying={() => {
+          setVideoLoaded(true);
+          setIsPlaying(true);
+        }}
+        className={`w-full h-full object-cover object-center select-none transition-opacity duration-700 ${
+          videoLoaded ? "opacity-100" : "opacity-0"
+        }`}
       >
         <source src="/videos/hero.mp4" type="video/mp4" />
         <source src="/videos/executive-room.mp4" type="video/mp4" />
@@ -70,25 +110,35 @@ function HeroVideoHeader() {
       {/* Gradient overlay */}
       <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/85 via-black/45 to-black/25 pointer-events-none" />
 
-      {/* Playback & Audio Controls */}
-      <div className="absolute bottom-6 right-6 z-30 flex items-center gap-2">
-        <button
-          onClick={togglePlay}
-          className="h-9 w-9 rounded-full bg-black/40 hover:bg-black/70 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all hover:scale-105 active:scale-95 shadow-md"
-          aria-label={isPlaying ? "Pause video" : "Play video"}
-          title={isPlaying ? "Pause video" : "Play video"}
-        >
-          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-white" />}
-        </button>
-        <button
-          onClick={toggleMute}
-          className="h-9 w-9 rounded-full bg-black/40 hover:bg-black/70 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all hover:scale-105 active:scale-95 shadow-md"
-          aria-label={isMuted ? "Unmute audio" : "Mute audio"}
-          title={isMuted ? "Unmute audio" : "Mute audio"}
-        >
-          {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-        </button>
-      </div>
+      {/* Video Playback Toggle: absolutely positioned at bottom: 1rem, right: 1rem, z-index: 30 */}
+      <button
+        id="video-playback-toggle"
+        type="button"
+        onClick={togglePlay}
+        className="absolute bottom-4 right-4 z-30 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all hover:scale-105 active:scale-95 shadow-md cursor-pointer"
+        aria-label={!videoLoaded ? "Video loading..." : isPlaying ? "Pause video" : "Play video"}
+        title={!videoLoaded ? "Video buffering..." : isPlaying ? "Pause video" : "Play video"}
+      >
+        {!videoLoaded ? (
+          <Loader2 className="h-4 w-4 animate-spin text-amber-300" />
+        ) : isPlaying ? (
+          <Pause className="h-4 w-4" />
+        ) : (
+          <Play className="h-4 w-4 fill-white" />
+        )}
+      </button>
+
+      {/* Audio Toggle: absolutely positioned to the left of #video-playback-toggle to prevent overlap */}
+      <button
+        id="video-audio-toggle"
+        type="button"
+        onClick={toggleMute}
+        className="absolute bottom-4 right-16 sm:right-[4.25rem] z-30 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all hover:scale-105 active:scale-95 shadow-md cursor-pointer"
+        aria-label={isMuted ? "Unmute audio" : "Mute audio"}
+        title={isMuted ? "Unmute audio" : "Mute audio"}
+      >
+        {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+      </button>
     </div>
   );
 }
@@ -100,7 +150,7 @@ export default function Home() {
   return (
     <>
       {/* HERO — critical, inlined */}
-      <section className="relative min-h-[95svh] sm:min-h-[100svh] w-full overflow-hidden flex flex-col justify-center lg:justify-end">
+      <section className="relative min-h-[100dvh] w-full overflow-hidden flex flex-col justify-center lg:justify-end">
         <HeroVideoHeader />
         <div className="container-x relative z-30 flex flex-col justify-center lg:justify-end pt-20 sm:pt-24 lg:pt-28 pb-8 sm:pb-12 my-auto lg:my-0">
           <div className="max-w-3xl pb-0 lg:pb-8 mx-auto lg:mx-0 text-center lg:text-left">

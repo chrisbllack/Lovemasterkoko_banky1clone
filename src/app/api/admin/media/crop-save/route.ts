@@ -66,9 +66,9 @@ export async function POST(req: NextRequest) {
       } else if (roomSlug === "standard") {
         await fs.writeFile(path.join(imagesDir, "Standard room.jpg"), buffer);
         await fs.writeFile(path.join(imagesDir, "standard.jpg"), buffer);
-      } else if (roomSlug === "presidential-suite") {
+      } else if (roomSlug === "luxury" || roomSlug === "presidential-suite") {
         await fs.writeFile(path.join(imagesDir, "Presidential.jpg"), buffer);
-      } else if (roomSlug === "signature-suite") {
+      } else if (roomSlug === "luxury-suite" || roomSlug === "signature-suite") {
         await fs.writeFile(path.join(imagesDir, "signature suite room.jpg"), buffer);
       }
     }

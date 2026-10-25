@@ -23,8 +23,8 @@ type RoomTypeSeed = {
 };
 
 const ROOM_TYPES: RoomTypeSeed[] = [
-  { slug: "signature-suite", name: "Signature Suite", qty: 1, baseRate: 20000000, maxOccupancy: 3, bed: "King Canopy Bed", image: "/images/signature suite room.jpg", blurb: "Our premier signature residence: a sunlit master living parlor, private dressing area, and an opulent king canopy bedroom framed by full-height windows.", features: ["Private living room", "Butler service", "Complimentary breakfast", "VIP airport transfer"] },
-  { slug: "presidential-suite", name: "Presidential Suite", qty: 3, baseRate: 10000000, maxOccupancy: 3, bed: "King Canopy Bed", image: "/images/presidential 17.jpg", blurb: "A stately presidential residence featuring an executive parlor, marble-finished bathroom, and expansive entertaining lounge.", features: ["Executive parlor", "King canopy bed", "Complimentary breakfast", "Late checkout"] },
+  { slug: "luxury-suite", name: "Luxury Suite", qty: 1, baseRate: 20000000, maxOccupancy: 3, bed: "King Canopy Bed", image: "/images/signature suite room.jpg", blurb: "Our premier luxury residence: a sunlit master living parlor, private dressing area, and an opulent king canopy bedroom framed by full-height windows.", features: ["Private living room", "Butler service", "Complimentary breakfast", "VIP airport transfer"] },
+  { slug: "luxury", name: "Luxury", qty: 3, baseRate: 10000000, maxOccupancy: 3, bed: "King Canopy Bed", image: "/images/presidential 17.jpg", blurb: "A stately luxury residence featuring an executive parlor, marble-finished bathroom, and expansive entertaining lounge.", features: ["Executive parlor", "King canopy bed", "Complimentary breakfast", "Late checkout"] },
   { slug: "super-executive", name: "Super Executive", qty: 1, baseRate: 6000000, maxOccupancy: 2, bed: "King Bed", image: "/images/superexecutive.jpg", blurb: "An expansive, peaceful haven featuring a private reading corner, plush bedding, and soft natural daylight.", features: ["King bed", "Reading corner", "Smart TV", "Daily housekeeping"] },
   { slug: "executive", name: "Executive", qty: 8, baseRate: 5000000, maxOccupancy: 2, bed: "King Bed", image: "/images/executive.jpg", blurb: "Rich warm timber, crisp Egyptian cotton linen, and an ergonomic workstation for productive executive stays.", features: ["King bed", "Work desk", "Rain shower", "Complimentary Wi-Fi"] },
   { slug: "standard-plus", name: "Standard Plus", qty: 4, baseRate: 4500000, maxOccupancy: 3, bed: "Queen Bed", image: "/images/standar plus.jpg", blurb: "An elevated retreat offering an extended lounge seating area, workspace, and serene courtyard views.", features: ["Queen bed", "Seating area", "Smart TV", "Air conditioning"] },
@@ -80,7 +80,7 @@ const ADDONS = [
 function roomNumber(rt: RoomTypeSeed, i: number): string {
   const floorBase: Record<string, number> = {
     "standard": 100, "deluxe": 200, "standard-plus": 250, "executive": 300,
-    "super-executive": 380, "presidential-suite": 400, "signature-suite": 500, "studio": 550,
+    "super-executive": 380, "luxury": 400, "luxury-suite": 400, "presidential-suite": 400, "signature-suite": 500, "studio": 550,
   };
   const base = floorBase[rt.slug] ?? 100;
   return String(base + i + 1);

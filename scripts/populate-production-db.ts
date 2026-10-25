@@ -80,8 +80,8 @@ async function populateProductionDb() {
   console.log("Seeding room types and catalogs...");
   const ROOM_TYPES = [
     {
-      slug: "signature-suite",
-      name: "Signature Suite",
+      slug: "luxury-suite",
+      name: "Luxury Suite",
       qty: 1,
       baseRate: 20000000, // ₦200,000 in kobo
       rate: 200000,
@@ -89,8 +89,8 @@ async function populateProductionDb() {
       bed: "King Canopy Bed",
       size: "85 sqm",
       image: "/images/signature suite room.jpg",
-      video: "/videos/signature-suite-room.mp4",
-      blurb: "Our premier signature residence: a sunlit master living parlor, private dressing area, and an opulent king canopy bedroom framed by full-height windows.",
+      video: "/videos/luxury-suite-room.mp4",
+      blurb: "Our premier luxury residence: a sunlit master living parlor, private dressing area, and an opulent king canopy bedroom framed by full-height windows.",
       features: ["Private living room", "Butler service", "Complimentary breakfast", "VIP airport transfer", "Walk-in closet", "Marble bath"],
       amenities: ["High-speed Wi-Fi", "Smart 65\" 4K TV", "Espresso Machine", "Mini Bar", "Luxury Linens", "Bathtub & Rain Shower"],
       availability_status: "available",
@@ -99,8 +99,8 @@ async function populateProductionDb() {
       status: "active",
     },
     {
-      slug: "presidential-suite",
-      name: "Presidential Suite",
+      slug: "luxury",
+      name: "Luxury",
       qty: 3,
       baseRate: 10000000, // ₦100,000 in kobo
       rate: 100000,
@@ -109,8 +109,8 @@ async function populateProductionDb() {
       size: "70 sqm",
       image: "/images/Presidential.jpg",
       images: ["/images/Presidential.jpg", "/images/presidential 17.jpg", "/images/presidential23.jpg", "/images/presidential3.jpg"],
-      video: "/videos/presidential-suite-room.mp4",
-      blurb: "A stately presidential residence featuring an executive parlor, marble-finished bathroom, and expansive entertaining lounge.",
+      video: "/videos/luxury-room.mp4",
+      blurb: "A stately luxury residence featuring an executive parlor, marble-finished bathroom, and expansive entertaining lounge.",
       features: ["Executive parlor", "King canopy bed", "Complimentary breakfast", "Late checkout", "Dining area"],
       amenities: ["High-speed Wi-Fi", "Smart TV", "Executive desk", "Mini Bar", "Room Service", "En-suite Bath"],
       availability_status: "available",
@@ -260,6 +260,8 @@ async function populateProductionDb() {
     "standard-plus": { start: 251, prefix: "25" },
     "executive": { start: 301, prefix: "30" },
     "super-executive": { start: 381, prefix: "38" },
+    "luxury": { start: 401, prefix: "40" },
+    "luxury-suite": { start: 401, prefix: "40" },
     "presidential-suite": { start: 401, prefix: "40" },
     "signature-suite": { start: 501, prefix: "50" },
     "studio": { start: 551, prefix: "55" },
@@ -674,7 +676,7 @@ async function populateProductionDb() {
   console.log("Seeding gallery images...");
   const GALLERY = [
     { id: "exterior-1", url: "/images/signature suite room.jpg", caption: "Signature Master Residence Interior", category: "suites", published: true, sort_order: 1 },
-    { id: "exterior-2", url: "/images/Presidential.jpg", caption: "Presidential Suite Executive Parlor", category: "suites", published: true, sort_order: 2 },
+    { id: "exterior-2", url: "/images/Presidential.jpg", caption: "Luxury Executive Parlor", category: "suites", published: true, sort_order: 2 },
     { id: "exterior-3", url: "/images/EXECUTIVE Main.jpeg", caption: "Executive Room Workspace & Bed", category: "rooms", published: true, sort_order: 3 },
     { id: "exterior-4", url: "/images/DELUXE MAIN1.jpeg", caption: "Deluxe Residence Ambient Lighting", category: "rooms", published: true, sort_order: 4 },
     { id: "exterior-5", url: "/images/Standard PLUS.jpeg", caption: "Standard Plus Lounge Corner", category: "rooms", published: true, sort_order: 5 },
@@ -702,8 +704,8 @@ async function populateProductionDb() {
       rating_dining: 5,
       rating_value: 5,
       review_title: "Exceptional Serenity & High-Level Security",
-      review_text: "I spent three nights in the Presidential Suite during an official summit in Ado-Ekiti. The staff were discreet and attentive, the catfish pepper soup was world-class, and the peaceful ambiance allowed me to rest completely. Banky Hotel is now my go-to residence in Ekiti State.",
-      room_category: "Presidential Suite",
+      review_text: "I spent three nights in the Luxury room during an official summit in Ado-Ekiti. The staff were discreet and attentive, the catfish pepper soup was world-class, and the peaceful ambiance allowed me to rest completely. Banky Hotel is now my go-to residence in Ekiti State.",
+      room_category: "Luxury",
       stay_purpose: "Business / Official",
       verified_stay: true,
       allow_public_display: true,
@@ -721,8 +723,8 @@ async function populateProductionDb() {
       rating_dining: 5,
       rating_value: 5,
       review_title: "Unmatched Hospitality and Pristine Rooms",
-      review_text: "The Signature Suite is simply magnificent. The bedding is ultra plush, climate control is whisper quiet, and the slow-motion video tours matched reality perfectly. The front desk was extraordinarily warm.",
-      room_category: "Signature Suite",
+      review_text: "The Luxury Suite is simply magnificent. The bedding is ultra plush, climate control is whisper quiet, and the slow-motion video tours matched reality perfectly. The front desk was extraordinarily warm.",
+      room_category: "Luxury Suite",
       stay_purpose: "Leisure / Anniversary",
       verified_stay: true,
       allow_public_display: true,

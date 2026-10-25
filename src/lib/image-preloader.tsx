@@ -141,7 +141,7 @@ export function preloadAllRoomsOnIdle(rooms: Room[] = ROOMS, delayMs: number = 8
 
   const timer = setTimeout(() => {
     scheduleTask(() => {
-      // Prioritize top suites first (Signature, Presidential, Super Executive, Executive)
+      // Prioritize top suites first (Signature, Luxury, Super Executive, Executive)
       const allUrls: string[] = [];
       rooms.forEach((room) => {
         const urls = getRoomImageUrls(room);

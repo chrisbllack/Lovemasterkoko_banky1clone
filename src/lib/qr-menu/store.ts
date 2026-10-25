@@ -205,6 +205,101 @@ export function subscribeMenuItems(
 }
 
 /**
+ * Update or add a Menu Category in Firestore & cache.
+ * If the category was renamed, cascades the new name to all menu items in that category.
+ */
+export async function updateMenuCategoryInDb(
+  category: MenuCategory,
+  previousName?: string
+): Promise<void> {
+  try {
+    const ref = doc(db, "menu_categories", category.id);
+    await setDoc(ref, category, { merge: true });
+
+    // If the category was renamed, cascade update to all items belonging to this category
+    if (previousName && previousName !== category.name) {
+      try {
+        const itemsCol = collection(db, "menu_items");
+        const itemsSnap = await getDocs(itemsCol);
+        const updates: Promise<unknown>[] = [];
+
+        itemsSnap.forEach((itemDoc) => {
+          const data = itemDoc.data() as MenuItem;
+          if (data.categoryId === category.id) {
+            updates.push(
+              updateDoc(doc(db, "menu_items", itemDoc.id), {
+                categoryName: category.name,
+                updatedAt: new Date().toISOString(),
+              })
+            );
+          }
+        });
+        await Promise.all(updates);
+      } catch (cascadeErr) {
+        console.warn("Failed to cascade category rename to menu items:", cascadeErr);
+      }
+    }
+  } catch (err) {
+    console.warn("Firestore category update error:", err);
+  }
+
+  // Update local cache so updates appear instantly
+  if (typeof window !== "undefined") {
+    try {
+      const cached = localStorage.getItem(LOCAL_STORAGE_CATS_KEY);
+      const cats: MenuCategory[] = cached ? JSON.parse(cached) : [...DEFAULT_CATEGORIES];
+      const index = cats.findIndex((c) => c.id === category.id);
+      if (index >= 0) {
+        cats[index] = category;
+      } else {
+        cats.push(category);
+      }
+      cats.sort((a, b) => (a.order || 0) - (b.order || 0));
+      localStorage.setItem(LOCAL_STORAGE_CATS_KEY, JSON.stringify(cats));
+
+      if (previousName && previousName !== category.name) {
+        const cachedItems = localStorage.getItem(LOCAL_STORAGE_ITEMS_KEY);
+        if (cachedItems) {
+          const items: MenuItem[] = JSON.parse(cachedItems);
+          let changed = false;
+          items.forEach((it) => {
+            if (it.categoryId === category.id) {
+              it.categoryName = category.name;
+              changed = true;
+            }
+          });
+          if (changed) {
+            localStorage.setItem(LOCAL_STORAGE_ITEMS_KEY, JSON.stringify(items));
+          }
+        }
+      }
+    } catch {}
+  }
+}
+
+/**
+ * Delete a menu category
+ */
+export async function deleteMenuCategoryFromDb(categoryId: string): Promise<void> {
+  try {
+    const ref = doc(db, "menu_categories", categoryId);
+    await deleteDoc(ref);
+  } catch (err) {
+    console.warn("Firestore delete category error:", err);
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const cached = localStorage.getItem(LOCAL_STORAGE_CATS_KEY);
+      if (cached) {
+        const cats: MenuCategory[] = JSON.parse(cached).filter((c: MenuCategory) => c.id !== categoryId);
+        localStorage.setItem(LOCAL_STORAGE_CATS_KEY, JSON.stringify(cats));
+      }
+    } catch {}
+  }
+}
+
+/**
  * Update an individual menu item in Firestore & cache
  */
 export async function updateMenuItemInDb(item: MenuItem): Promise<void> {

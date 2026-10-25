@@ -44,7 +44,7 @@ interface VideoStitcherModalProps {
 export function VideoStitcherModal({
   isOpen,
   onClose,
-  defaultSlug = "presidential-suite",
+  defaultSlug = "luxury",
   onStitchComplete,
 }: VideoStitcherModalProps) {
   const [targetSlug, setTargetSlug] = useState(defaultSlug);
@@ -190,7 +190,7 @@ export function VideoStitcherModal({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-display text-xl text-stone-900 dark:text-white font-bold">
-                  Presidential Suite Video Header Stitcher Studio
+                  Luxury Video Header Stitcher Studio
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-condensed uppercase tracking-wider bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 font-semibold border border-amber-300/40">
                   16:9 Landscape • 1080p Web Header
@@ -285,7 +285,7 @@ export function VideoStitcherModal({
           <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-stone-700 dark:text-stone-300">
             <div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-300 mb-1">
               <Compass className="w-4 h-4 text-amber-500" />
-              <span>Recommended Presidential Suite Video Flow:</span>
+              <span>Recommended Luxury Video Flow:</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 text-[11px]">
               <div className="p-2 rounded-xl bg-white/70 dark:bg-stone-900/60 border border-amber-400/20">
@@ -358,7 +358,7 @@ export function VideoStitcherModal({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-semibold text-sm">
                   <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                  <span>Presidential Suite Header Video Active!</span>
+                  <span>Luxury Header Video Active!</span>
                 </div>
                 <div className="text-xs font-mono text-emerald-600 dark:text-emerald-400">
                   {stitchedResult.duration}s • {(stitchedResult.sizeBytes / (1024 * 1024)).toFixed(1)} MB

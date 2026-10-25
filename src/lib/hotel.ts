@@ -25,8 +25,8 @@ export type Room = {
 };
 
 export const ROOMS: Room[] = [
-  { slug: "signature-suite", name: "Signature Suite", rate: 200000, qty: 1, image: "/images/signature suite room.jpg", video: "/videos/signature-suite-room.mp4", blurb: "Our premier signature residence: a sunlit master living parlor, private dressing area, and an opulent master suite framed by full-height windows.", features: ["Private living room", "Butler service", "Complimentary breakfast", "VIP airport transfer"] },
-  { slug: "presidential-suite", name: "Presidential Suite", rate: 100000, qty: 3, image: "/images/Presidential.jpg", images: ["/images/Presidential.jpg", "/images/presidential 17.jpg", "/images/presidential23.jpg", "/images/presidential3.jpg"], video: "/videos/presidential-suite-room.mp4", blurb: "A stately presidential residence featuring an executive parlor, marble-finished bathroom, and expansive entertaining lounge suited for visiting dignitaries and VIPs.", features: ["Executive parlor", "VIP lounge access", "Complimentary breakfast", "Late checkout"] },
+  { slug: "luxury-suite", name: "Luxury Suite", rate: 200000, qty: 1, image: "/images/signature suite room.jpg", video: "/videos/luxury-suite-room.mp4", blurb: "Our premier luxury residence: a sunlit master living parlor, private dressing area, and an opulent master suite framed by full-height windows.", features: ["Private living room", "Butler service", "Complimentary breakfast", "VIP airport transfer"] },
+  { slug: "luxury", name: "Luxury", rate: 100000, qty: 3, image: "/images/Presidential.jpg", images: ["/images/Presidential.jpg", "/images/presidential 17.jpg", "/images/presidential23.jpg", "/images/presidential3.jpg"], video: "/videos/luxury-room.mp4", blurb: "A stately luxury residence featuring an executive parlor, marble-finished bathroom, and expansive entertaining lounge suited for visiting dignitaries and VIPs.", features: ["Executive parlor", "VIP lounge access", "Complimentary breakfast", "Late checkout"] },
   { slug: "super-executive", name: "Super Executive", rate: 60000, qty: 1, image: "/images/superexecutive.jpg", images: ["/images/superexecutive.jpg", "/images/super executive1.jpg", "/images/super executive 2.jpg"], video: "/videos/super-executive-room.mp4", blurb: "An expansive, peaceful haven featuring a private reading corner, plush appointments, and soft natural daylight throughout the day.", features: ["Reading corner", "Smart TV", "Daily housekeeping", "Courtyard view"] },
   { slug: "executive", name: "Executive", rate: 50000, qty: 8, image: "/images/EXECUTIVE Main.jpeg", images: ["/images/EXECUTIVE Main.jpeg", "/images/EXECUTIVE MAIN2.jpeg"], video: "/videos/executive-room.mp4", blurb: "Rich warm timber, crisp Egyptian cotton linen, and an ergonomic workstation tailored for restful and productive executive stays.", features: ["Work desk", "Rain shower", "Complimentary Wi-Fi", "Daily housekeeping"] },
   { slug: "standard-plus", name: "Standard Plus", rate: 45000, qty: 4, image: "/images/Standard PLUS.jpeg", images: ["/images/Standard PLUS.jpeg", "/images/STANDARD PLUS MAIN .jpeg"], video: "/videos/standard-plus-room.mp4", blurb: "An elevated retreat offering an extended lounge seating area, comfortable dedicated workspace, and serene courtyard views.", features: ["Seating area", "Smart TV", "Air conditioning", "Complimentary Wi-Fi"] },
@@ -57,56 +57,5 @@ export function nightsBetween(a: string, b: string) {
   if (!a || !b) return 0;
   const d = (new Date(b).getTime() - new Date(a).getTime()) / 86_400_000;
   return d > 0 ? Math.round(d) : 0;
-}
-
-export function makeReference() {
-  return `BHS-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-}
-
-export type AvailabilityResult = {
-  available: boolean;
-  availableRoomsCount: number;
-  message: string;
-};
-
-/**
- * Placeholder function to simulate checking room inventory for given dates.
- * Simulates network latency and verifies room availability against inventory.
- */
-export async function checkAvailability(params: {
-  roomSlug: string;
-  checkIn: string;
-  checkOut: string;
-  guests?: number;
-}): Promise<AvailabilityResult> {
-  // Simulate network / database inventory check delay
-  await new Promise((resolve) => setTimeout(resolve, 700));
-
-  const room = ROOMS.find((r) => r.slug === params.roomSlug);
-  if (!room) {
-    return {
-      available: false,
-      availableRoomsCount: 0,
-      message: "Selected room category was not found.",
-    };
-  }
-
-  const nights = nightsBetween(params.checkIn, params.checkOut);
-  if (nights <= 0) {
-    return {
-      available: false,
-      availableRoomsCount: 0,
-      message: "Please select valid check-in and check-out dates.",
-    };
-  }
-
-  // Simulate available inventory from room configuration
-  const availableCount = Math.max(1, room.qty);
-
-  return {
-    available: true,
-    availableRoomsCount: availableCount,
-    message: `${room.name} is available for your dates (${availableCount} room${availableCount > 1 ? "s" : ""} left in inventory).`,
-  };
 }
 

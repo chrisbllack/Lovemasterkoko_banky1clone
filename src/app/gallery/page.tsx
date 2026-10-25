@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 
 type GalleryItem = { src: string; alt: string; category: string };
@@ -20,11 +21,11 @@ const GALLERY: GalleryItem[] = [
   { src: "/images/corridor-hallway-2.jpg", alt: "Hallway details", category: "Lobby & Reception" },
 
   // Rooms & Suites
-  { src: "/images/signature suite room.jpg", alt: "Signature Suite", category: "Rooms & Suites" },
-  { src: "/images/Presidential.jpg", alt: "Presidential Suite master parlor", category: "Rooms & Suites" },
-  { src: "/images/presidential 17.jpg", alt: "Presidential Suite VIP appointments", category: "Rooms & Suites" },
-  { src: "/images/presidential23.jpg", alt: "Presidential Suite stately ambiance", category: "Rooms & Suites" },
-  { src: "/images/presidential3.jpg", alt: "Presidential Suite luxury interior", category: "Rooms & Suites" },
+  { src: "/images/signature suite room.jpg", alt: "Luxury Suite", category: "Rooms & Suites" },
+  { src: "/images/Presidential.jpg", alt: "Luxury room master parlor", category: "Rooms & Suites" },
+  { src: "/images/presidential 17.jpg", alt: "Luxury room VIP appointments", category: "Rooms & Suites" },
+  { src: "/images/presidential23.jpg", alt: "Luxury room stately ambiance", category: "Rooms & Suites" },
+  { src: "/images/presidential3.jpg", alt: "Luxury room luxury interior", category: "Rooms & Suites" },
   { src: "/images/superexecutive.jpg", alt: "Super Executive room", category: "Rooms & Suites" },
   { src: "/images/EXECUTIVE Main.jpeg", alt: "Executive room — Master bed and ambient paneling", category: "Rooms & Suites" },
   { src: "/images/EXECUTIVE MAIN2.jpeg", alt: "Executive room — Marble media wall and dressing suite", category: "Rooms & Suites" },
@@ -90,8 +91,15 @@ export default function GalleryPage() {
   return (
     <>
       {/* Hero */}
-      <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 bg-[#1b1b1b] dark:bg-[#1a1a1d]">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#1b1b1b] dark:from-[#202023] via-[#1b1b1b]/80 to-[#1b1b1b]" />
+      <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 bg-[#1b1b1b] dark:bg-[#1a1a1d] overflow-hidden">
+        {/* Baseline Gallery Header Image — guaranteed first visual to show immediately */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/images/Hotel Lobby.jpg"
+          alt="Banky Hotel Gallery"
+          className="absolute inset-0 w-full h-full object-cover opacity-25 pointer-events-none select-none"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1b1b1b]/80 dark:from-[#202023]/80 via-[#1b1b1b]/90 to-[#1b1b1b]" />
         <div className="container-x relative z-10 text-center">
           <span className="eyebrow text-[var(--accent)] block mb-3">Visual Tour</span>
           <h1 className="font-display text-4xl sm:text-5xl md:text-6xl text-white">Photo Gallery</h1>
@@ -133,7 +141,6 @@ export default function GalleryPage() {
                 key={item.src}
                 onClick={() => setLightboxIdx(i)}
                 className="overflow-hidden rounded-2xl border border-[#ece6dd] dark:border-[#2e2b26] group cursor-pointer block w-full text-left shadow-sm aspect-[16/10] relative bg-stone-200 dark:bg-stone-800"
-                {...({ loading: "lazy" } as any)}
               >
                 {/* Blurred placeholder background using CSS filter: blur(20px) while full image loads */}
                 <div
@@ -147,12 +154,13 @@ export default function GalleryPage() {
                   data-placeholder="blur"
                   aria-hidden="true"
                 />
-                <img
-                  src={encodeURI(item.src)}
+                <Image
+                  src={item.src}
                   alt={item.alt}
-                  className="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  loading="lazy"
-                  decoding="async"
+                  fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  referrerPolicy="no-referrer"
+                  className="relative z-10 object-cover group-hover:scale-105 transition-transform duration-700"
                   onLoad={(e) => {
                     const sibling = e.currentTarget.previousElementSibling as HTMLElement | null;
                     if (sibling) {
@@ -213,10 +221,14 @@ export default function GalleryPage() {
           {/* Image */}
           <div className="max-w-[90vw] max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
             <div className="overflow-hidden rounded-2xl shadow-2xl border border-white/10">
-              <img
-                src={encodeURI(lightboxItem.src)}
+              <Image
+                src={lightboxItem.src}
                 alt={lightboxItem.alt}
-                className="max-w-full max-h-[80vh] object-contain"
+                width={1400}
+                height={900}
+                priority
+                referrerPolicy="no-referrer"
+                className="max-w-full max-h-[80vh] w-auto h-auto object-contain"
               />
             </div>
             <div className="mt-3 text-center">

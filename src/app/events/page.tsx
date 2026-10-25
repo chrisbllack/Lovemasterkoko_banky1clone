@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { HOTEL, naira, whatsappLink, bookingMessage } from "@/lib/hotel";
 import { BreadcrumbSchema } from "@/components/seo/StructuredData";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
@@ -25,8 +26,15 @@ export default function EventsPage() {
   return (
     <>
       <BreadcrumbSchema items={breadcrumbs} />
-      <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 bg-[#1b1b1b] dark:bg-[#1a1a1d]">
-        <img src="/images/BankyHall.jpg" alt="" className="absolute inset-0 w-full h-full object-cover opacity-30" />
+      <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 bg-[#1b1b1b] dark:bg-[#1a1a1d] overflow-hidden">
+        <Image
+          src="/images/BankyHall.jpg"
+          alt="Banky Hall Banqueting and Events"
+          fill
+          priority
+          referrerPolicy="no-referrer"
+          className="object-cover opacity-30"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-[#1b1b1b] dark:from-[#202023] via-[#1b1b1b]/60 to-[#1b1b1b]/80" />
         <div className="container-x relative z-10 text-center">
           <span className="eyebrow text-[var(--accent)] block mb-3">Banqueting &amp; Events</span>

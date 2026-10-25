@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { whatsappLink, HOTEL } from "@/lib/hotel";
 import { BreadcrumbSchema } from "@/components/seo/StructuredData";
 import { LazyAspectImage } from "@/components/common/LazyAspectImage";
@@ -45,10 +46,13 @@ export default function BarPage() {
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 bg-[#18181b] dark:bg-[#141416] overflow-hidden">
-        <img
+        <Image
           src="/images/OpenBar Garden.jpg"
           alt="Open-Air Bar and Lounge at Banky Hotel"
-          className="absolute inset-0 w-full h-full object-cover opacity-35 filter brightness-95"
+          fill
+          priority
+          referrerPolicy="no-referrer"
+          className="object-cover opacity-35 filter brightness-95"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#18181b] dark:from-[#1b1b1e] via-[#18181b]/70 to-[#18181b]/80" />
         <div className="container-x relative z-10 text-center max-w-3xl mx-auto">

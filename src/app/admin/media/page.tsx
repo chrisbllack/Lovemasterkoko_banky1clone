@@ -27,6 +27,7 @@ import {
   X,
   Volume2,
   VolumeX,
+  Save,
 } from "lucide-react";
 import Link from "next/link";
 import { ROOMS, Room } from "@/lib/hotel";
@@ -35,6 +36,7 @@ import { ImageCropperModal } from "@/components/admin/ImageCropperModal";
 import { BatchRenamerModal, type MediaFileItem } from "@/components/admin/BatchRenamerModal";
 import { UsageAuditReport } from "@/components/admin/UsageAuditReport";
 import { VideoStitcherModal } from "@/components/admin/VideoStitcherModal";
+import { RoomVideoUploadModal } from "@/components/admin/RoomVideoUploadModal";
 
 interface UploadedFile {
   name: string;
@@ -90,6 +92,10 @@ export default function AdminMediaPage() {
   const [stitcherOpen, setStitcherOpen] = useState(false);
   const [stitcherDefaultSlug, setStitcherDefaultSlug] = useState("standard-plus");
 
+  // Room Video Header Upload & Save Modal state
+  const [videoUploadModalOpen, setVideoUploadModalOpen] = useState(false);
+  const [videoUploadTargetSlug, setVideoUploadTargetSlug] = useState("luxury-suite");
+
   // Server-verified video file status map from /public/videos/
   interface ServerVideoItem {
     slug: string;
@@ -102,6 +108,8 @@ export default function AdminMediaPage() {
   const [activeVideoMap, setActiveVideoMap] = useState<Record<string, string>>({});
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [videoPlaybackErrors, setVideoPlaybackErrors] = useState<Record<string, boolean>>({});
+  const [playingVideoMap, setPlayingVideoMap] = useState<Record<string, boolean>>({});
+  const [loadingVideoMap, setLoadingVideoMap] = useState<Record<string, boolean>>({});
   const [enlargedVideo, setEnlargedVideo] = useState<{ name: string; url: string; slug: string } | null>(null);
 
   // Query actual video files located on the server in /public/videos/
@@ -303,8 +311,8 @@ export default function AdminMediaPage() {
       if (u.includes("EXEC")) slug = "executive";
       else if (u.includes("PLUS")) slug = "standard-plus";
       else if (u.includes("STAND")) slug = "standard";
-      else if (u.includes("PRES")) slug = "presidential-suite";
-      else if (u.includes("SIGN")) slug = "signature-suite";
+      else if (u.includes("SIGN") || u.includes("LUXURY-SUITE")) slug = "luxury-suite";
+      else if (u.includes("LUX") || u.includes("PRES")) slug = "luxury";
 
       startCropperForFile(firstImage, slug);
     } else {
@@ -941,9 +949,23 @@ export default function AdminMediaPage() {
                   Each room page renders a dynamic full-bleed video header with speed controls (1x, 0.75x, 0.5x) and audio toggle. Upload new .mp4 or .webm files here to instantly update any room.
                 </p>
               </div>
-              <div className="flex items-center gap-2 text-xs font-mono text-stone-500 bg-stone-100 dark:bg-stone-800/80 px-3 py-2 rounded-xl">
-                <span>Storage target:</span>
-                <span className="font-semibold text-amber-600 dark:text-amber-400">/public/videos/</span>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  id="open-video-header-uploader-btn"
+                  onClick={() => {
+                    setVideoUploadTargetSlug("luxury-suite");
+                    setVideoUploadModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-black font-condensed uppercase tracking-wider text-xs font-bold shadow-sm transition-all cursor-pointer"
+                >
+                  <Save className="h-4 w-4 stroke-[2.5]" />
+                  <span>Upload &amp; Save Video Header</span>
+                </button>
+                <div className="flex items-center gap-2 text-xs font-mono text-stone-500 bg-stone-100 dark:bg-stone-800/80 px-3 py-2 rounded-xl">
+                  <span>Storage target:</span>
+                  <span className="font-semibold text-amber-600 dark:text-amber-400">/public/videos/</span>
+                </div>
               </div>
             </div>
 
@@ -981,14 +1003,59 @@ export default function AdminMediaPage() {
                         key={`${room.slug}-${activeSrc}`}
                         src={activeSrc}
                         poster={room.image}
-                        controls
                         playsInline
                         muted
                         autoPlay
                         loop
                         crossOrigin="anonymous"
                         preload="auto"
+                        onLoadStart={() => {
+                          setLoadingVideoMap((prev) => ({ ...prev, [room.slug]: true }));
+                        }}
+                        onWaiting={() => {
+                          setLoadingVideoMap((prev) => ({ ...prev, [room.slug]: true }));
+                        }}
+                        onLoadedMetadata={(e) => {
+                          setLoadingVideoMap((prev) => ({ ...prev, [room.slug]: false }));
+                          const video = e.currentTarget;
+                          video.muted = true;
+                          const playPromise = video.play();
+                          if (playPromise !== undefined) {
+                            playPromise
+                              .then(() => {
+                                setPlayingVideoMap((prev) => ({ ...prev, [room.slug]: true }));
+                              })
+                              .catch((err) => {
+                                console.warn("Autoplay deferred for " + room.slug, err);
+                                video.muted = true;
+                                video.play().catch(() => {});
+                              });
+                          }
+                        }}
+                        onCanPlay={(e) => {
+                          setLoadingVideoMap((prev) => ({ ...prev, [room.slug]: false }));
+                          const video = e.currentTarget;
+                          if (video.paused) {
+                            video.muted = true;
+                            const playPromise = video.play();
+                            if (playPromise !== undefined) {
+                              playPromise
+                                .then(() => {
+                                  setPlayingVideoMap((prev) => ({ ...prev, [room.slug]: true }));
+                                })
+                                .catch(() => {});
+                            }
+                          }
+                        }}
+                        onPlay={() => {
+                          setLoadingVideoMap((prev) => ({ ...prev, [room.slug]: false }));
+                          setPlayingVideoMap((prev) => ({ ...prev, [room.slug]: true }));
+                        }}
+                        onPause={() => {
+                          setPlayingVideoMap((prev) => ({ ...prev, [room.slug]: false }));
+                        }}
                         onError={() => {
+                          setLoadingVideoMap((prev) => ({ ...prev, [room.slug]: false }));
                           if (!hasPlaybackError) {
                             setVideoPlaybackErrors((prev) => ({ ...prev, [room.slug]: true }));
                             // If primary fails, try fallback alias
@@ -999,6 +1066,7 @@ export default function AdminMediaPage() {
                           }
                         }}
                         onLoadedData={() => {
+                          setLoadingVideoMap((prev) => ({ ...prev, [room.slug]: false }));
                           if (hasPlaybackError) {
                             setVideoPlaybackErrors((prev) => ({ ...prev, [room.slug]: false }));
                           }
@@ -1008,11 +1076,12 @@ export default function AdminMediaPage() {
                         <source src={activeSrc} type="video/mp4" />
                         <source src={`/videos/${room.slug}.mp4?t=${refreshKey}`} type="video/mp4" />
                         <source src={`/videos/${room.slug}-room.mp4?t=${refreshKey}`} type="video/mp4" />
+                        <source src={`/public/videos/${room.slug}-room.mp4?t=${refreshKey}`} type="video/mp4" />
                       </video>
 
                       {/* Active Video Header Badge */}
                       <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5 pointer-events-none">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-md border border-white/20 text-[10px] font-condensed uppercase tracking-wider text-amber-300 font-semibold shadow-sm">
+                        <span className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-md border border-white/20 text-[9px] sm:text-[10px] font-condensed uppercase tracking-wider text-amber-300 font-semibold shadow-sm">
                           <span
                             className={`w-1.5 h-1.5 rounded-full ${
                               existsOnDisk && !hasPlaybackError
@@ -1020,13 +1089,16 @@ export default function AdminMediaPage() {
                                 : "bg-amber-400"
                             }`}
                           />
-                          <span>
+                          <span className="hidden xs:inline">
                             {existsOnDisk && !hasPlaybackError
-                              ? "Active Video Header"
+                              ? (playingVideoMap[room.slug] ? "Video Header Active" : "Video Header Ready")
                               : "Live Tour Ready"}
                           </span>
+                          <span className="xs:hidden">
+                            {existsOnDisk && !hasPlaybackError ? "Video" : "Live"}
+                          </span>
                           {fileSizeMB && (
-                            <span className="text-white/70 font-mono text-[9px]">
+                            <span className="text-white/70 font-mono text-[9px] hidden sm:inline">
                               ({fileSizeMB})
                             </span>
                           )}
@@ -1034,27 +1106,68 @@ export default function AdminMediaPage() {
                       </div>
 
                       {/* Top Right Controls: Play/Pause Toggle & Enlarge */}
-                      <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5">
-                        <button
-                          id="video-playback-toggle"
-                          type="button"
-                          onClick={(e) => {
-                            const container = e.currentTarget.closest(".relative");
-                            const video = container?.querySelector("video");
-                            if (video) {
-                              if (video.paused) {
-                                video.play().catch(() => {});
-                              } else {
-                                video.pause();
+                      <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1 sm:gap-1.5">
+                        <div className="relative inline-flex items-center justify-center shrink-0">
+                          {loadingVideoMap[room.slug] && (
+                            <span className="absolute -inset-0.5 rounded-full bg-amber-400/25 animate-pulse pointer-events-none" />
+                          )}
+                          <button
+                            id={`admin-media-playback-${room.slug}`}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const container = e.currentTarget.closest(".relative");
+                              const video = container?.querySelector("video");
+                              if (video) {
+                                if (video.paused) {
+                                  video.muted = true;
+                                  const playPromise = video.play();
+                                  if (playPromise !== undefined) {
+                                    playPromise
+                                      .then(() => {
+                                        setPlayingVideoMap((prev) => ({ ...prev, [room.slug]: true }));
+                                      })
+                                      .catch((err) => {
+                                        console.warn("Video play() failed, retrying muted:", err);
+                                        video.muted = true;
+                                        const retry = video.play();
+                                        if (retry !== undefined) {
+                                          retry
+                                            .then(() => {
+                                              setPlayingVideoMap((prev) => ({ ...prev, [room.slug]: true }));
+                                            })
+                                            .catch(() => {});
+                                        }
+                                      });
+                                  }
+                                } else {
+                                  video.pause();
+                                  setPlayingVideoMap((prev) => ({ ...prev, [room.slug]: false }));
+                                }
                               }
-                            }
-                          }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/80 hover:bg-black backdrop-blur-md border border-white/20 text-[10px] font-condensed uppercase tracking-wider text-white hover:text-amber-200 transition-colors shadow-sm cursor-pointer"
-                          title="Play or pause this room video header"
-                        >
-                          <Play className="h-3 w-3 fill-white text-white" />
-                          <span>Play/Pause</span>
-                        </button>
+                            }}
+                            className="relative inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-full bg-black/80 hover:bg-black backdrop-blur-md border border-white/20 text-[9px] sm:text-[10px] font-condensed tracking-wider uppercase text-white hover:text-amber-200 transition-colors shadow-sm cursor-pointer shrink-0"
+                            title={playingVideoMap[room.slug] ? "Pause this room video header" : "Play this room video header"}
+                            aria-label={playingVideoMap[room.slug] ? "Pause this room video header" : "Play this room video header"}
+                          >
+                            {loadingVideoMap[room.slug] ? (
+                              <>
+                                <Loader2 className="h-3 w-3 animate-spin text-amber-300" />
+                                <span className="hidden sm:inline">Loading...</span>
+                              </>
+                            ) : playingVideoMap[room.slug] ? (
+                              <>
+                                <Pause className="h-3 w-3 text-amber-300" />
+                                <span>Pause</span>
+                              </>
+                            ) : (
+                              <>
+                                <Play className="h-3 w-3 fill-white text-white" />
+                                <span>Play</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
 
                         <button
                           type="button"
@@ -1121,26 +1234,25 @@ export default function AdminMediaPage() {
 
                           <button
                             type="button"
-                            onClick={() => triggerRoomVideoUpload(room.slug)}
-                            disabled={isUploadingThis}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 font-condensed uppercase tracking-wider text-xs font-medium transition-all shadow-sm cursor-pointer disabled:opacity-60"
-                            title="Upload single video file (.mp4, .webm, .mov)"
+                            onClick={() => {
+                              setVideoUploadTargetSlug(room.slug);
+                              setVideoUploadModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:border-amber-400 text-stone-700 dark:text-stone-300 hover:text-amber-900 dark:hover:text-amber-300 font-condensed uppercase tracking-wider text-xs font-semibold transition-all shadow-sm cursor-pointer"
+                            title={`Select, preview, and save the main video header for ${room.name}`}
                           >
-                            {isUploadingThis ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Upload className="h-3.5 w-3.5" />
-                            )}
-                            <span>Single</span>
+                            <Save className="h-3.5 w-3.5 text-amber-500" />
+                            <span>Upload &amp; Save</span>
                           </button>
                         </div>
 
                         <Link
-                          href={`/rooms/${room.slug}`}
+                          href={`/rooms/${room.slug}?admin=true`}
                           target="_blank"
+                          title="View live room page with admin header controls enabled"
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 hover:bg-white dark:hover:bg-stone-800 text-stone-700 dark:text-stone-200 text-xs font-medium transition-colors"
                         >
-                          <span>Live Page</span>
+                          <span>Live Page (Admin)</span>
                           <ExternalLink className="h-3.5 w-3.5" />
                         </Link>
                       </div>
@@ -1277,6 +1389,20 @@ export default function AdminMediaPage() {
           </div>
         </div>
       )}
+
+      {/* Dedicated Room Video Header Upload & Save Modal */}
+      <RoomVideoUploadModal
+        isOpen={videoUploadModalOpen}
+        onClose={() => setVideoUploadModalOpen(false)}
+        defaultSlug={videoUploadTargetSlug}
+        onSaveComplete={({ url, slug }) => {
+          setActiveVideoMap((prev) => ({ ...prev, [slug]: url }));
+          setVideoPlaybackErrors((prev) => ({ ...prev, [slug]: false }));
+          setRefreshKey(Date.now());
+          setStatusMessage(`Successfully saved and activated main video header for ${slug}!`);
+          fetchVideoStatuses();
+        }}
+      />
     </div>
   );
 }

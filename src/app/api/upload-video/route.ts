@@ -108,8 +108,8 @@ export async function POST(req: NextRequest) {
 
     // Canonical slug normalization
     if (slug === "superexecutive") slug = "super-executive";
-    if (slug === "signaturesuite") slug = "signature-suite";
-    if (slug === "presidentialsuite") slug = "presidential-suite";
+    if (slug === "signaturesuite" || slug === "signature-suite" || slug === "luxurysuite") slug = "luxury-suite";
+    if (slug === "presidentialsuite" || slug === "presidential-suite") slug = "luxury";
     if (slug === "standardplus") slug = "standard-plus";
 
     if (!file) {
@@ -179,20 +179,27 @@ export async function POST(req: NextRequest) {
     const targetPath = path.join(videosDir, filename);
     await fs.writeFile(targetPath, finalBuffer);
 
+    // Helper to safely write symlink for alias
+    const linkAlias = async (aliasFilename: string) => {
+      if (aliasFilename === filename) return;
+      const aliasPath = path.join(videosDir, aliasFilename);
+      await fs.unlink(aliasPath).catch(() => {});
+      await fs.symlink(filename, aliasPath).catch(() => {});
+    };
+
     // 2. Backwards-compatible alias: [slug].mp4
-    const aliasPath = path.join(videosDir, `${slug}.mp4`);
-    await fs.writeFile(aliasPath, finalBuffer);
+    await linkAlias(`${slug}.mp4`);
 
     // 3. Handle hyphenated variations (e.g. super-executive vs superexecutive)
     const normalizedNoHyphen = slug.replace(/-/g, "");
     if (normalizedNoHyphen !== slug) {
-      await fs.writeFile(path.join(videosDir, `${normalizedNoHyphen}-room.mp4`), finalBuffer);
-      await fs.writeFile(path.join(videosDir, `${normalizedNoHyphen}.mp4`), finalBuffer);
+      await linkAlias(`${normalizedNoHyphen}-room.mp4`);
+      await linkAlias(`${normalizedNoHyphen}.mp4`);
     }
 
     if (slug === "hero" || slug === "header") {
-      await fs.writeFile(path.join(videosDir, "hero.mp4"), finalBuffer);
-      await fs.writeFile(path.join(videosDir, "hero-room.mp4"), finalBuffer);
+      await linkAlias("hero.mp4");
+      await linkAlias("hero-room.mp4");
     }
 
     // 4. Update manifest for atomic lookup

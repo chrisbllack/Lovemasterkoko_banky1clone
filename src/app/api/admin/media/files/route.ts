@@ -3,6 +3,7 @@ import fs from "fs/promises";
 import path from "path";
 import { ROOMS } from "@/lib/hotel";
 import { getRoomTypes } from "@/lib/booking/engine";
+import type { RoomType } from "@/lib/booking/types";
 
 export async function GET() {
   try {
@@ -13,7 +14,7 @@ export async function GET() {
     const imageExtensions = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"]);
 
     // 1. Fetch room configurations from Firestore database (falling back to default room types and hotel catalog)
-    let dbRoomTypes: any[] = [];
+    let dbRoomTypes: RoomType[] = [];
     try {
       dbRoomTypes = await getRoomTypes();
     } catch (e) {

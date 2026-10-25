@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import QRCode from "qrcode";
 import {
   X,
@@ -158,9 +159,13 @@ export function TableQrCardModal({
 
               {/* Generated QR code */}
               {qrDataUrl ? (
-                <img
+                <Image
                   src={qrDataUrl}
                   alt={`QR Code for ${roomOrTable}`}
+                  width={192}
+                  height={192}
+                  unoptimized
+                  referrerPolicy="no-referrer"
                   className="w-44 h-44 sm:w-48 sm:h-48 object-contain rounded-md"
                 />
               ) : (

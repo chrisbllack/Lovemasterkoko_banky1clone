@@ -19,7 +19,7 @@ const FAQS = [
   { q: "Do you have 24/7 security and uninterrupted power?", a: "Yes, we provide round-the-clock armed professional security, CCTV surveillance, and full multi-tier generator power backup." },
   { q: "What payment methods do you accept?", a: "We accept Paystack online payments (cards, bank transfer, USSD), direct bank transfers, and front-desk cash/card payments." },
   { q: "Can I book via WhatsApp?", a: "Absolutely. You can message us on WhatsApp to make inquiries, check availability, and confirm reservations with our front desk team." },
-  { q: "Do you offer airport transfers?", a: "VIP airport transfers are available for Signature Suite and Presidential Suite guests. Other rooms can arrange transfers upon request." },
+  { q: "Do you offer airport transfers?", a: "VIP airport transfers are available for Luxury Suite and Luxury guests. Other rooms can arrange transfers upon request." },
   { q: "Is there parking available?", a: "Yes, we offer complimentary secure parking for all hotel guests within our guarded premises." },
 ];
 

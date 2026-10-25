@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { BreadcrumbSchema } from "@/components/seo/StructuredData";
 import { LazyAspectImage } from "@/components/common/LazyAspectImage";
 import { Utensils, Wine, ArrowRight, Sparkles } from "lucide-react";
@@ -28,10 +29,13 @@ export default function DiningHubPage() {
 
       {/* Hero */}
       <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 bg-[#1b1b1b] dark:bg-[#1a1a1d] overflow-hidden">
-        <img
+        <Image
           src="/images/dining.jpg"
           alt="Restaurant and Bar at Banky Hotel"
-          className="absolute inset-0 w-full h-full object-cover opacity-30"
+          fill
+          priority
+          referrerPolicy="no-referrer"
+          className="object-cover opacity-30"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#1b1b1b] dark:from-[#202023] via-[#1b1b1b]/70 to-[#1b1b1b]/80" />
         <div className="container-x relative z-10 text-center max-w-3xl mx-auto">
@@ -59,10 +63,13 @@ export default function DiningHubPage() {
             {/* The Restaurant Card */}
             <div className="group rounded-3xl overflow-hidden border border-stone-200 dark:border-stone-800 bg-[#fdfbf7] dark:bg-[#25252a] shadow-lg flex flex-col justify-between hover:border-[var(--accent)] transition-all">
               <div className="relative aspect-[16/10] overflow-hidden">
-                <img
+                <Image
                   src="/images/dining.jpg"
                   alt="The Restaurant"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  referrerPolicy="no-referrer"
+                  className="object-cover group-hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                 <div className="absolute bottom-4 left-4 right-4 text-white">
@@ -100,10 +107,13 @@ export default function DiningHubPage() {
             {/* The Bar Card */}
             <div className="group rounded-3xl overflow-hidden border border-stone-200 dark:border-stone-800 bg-[#fdfbf7] dark:bg-[#25252a] shadow-lg flex flex-col justify-between hover:border-[var(--accent)] transition-all">
               <div className="relative aspect-[16/10] overflow-hidden">
-                <img
+                <Image
                   src="/images/OpenBar Garden.jpg"
                   alt="The Bar: Open-Air Bar & Lounge"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  referrerPolicy="no-referrer"
+                  className="object-cover group-hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                 <div className="absolute bottom-4 left-4 right-4 text-white">

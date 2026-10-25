@@ -6,7 +6,7 @@ export function middleware(request: NextRequest) {
 
   // Intercept CORS preflight OPTIONS requests for videos and static assets
   if (request.method === "OPTIONS") {
-    if (pathname.startsWith("/videos/") || pathname.startsWith("/images/") || pathname.startsWith("/api/")) {
+    if (pathname.startsWith("/videos/") || pathname.startsWith("/public/videos/") || pathname.startsWith("/images/") || pathname.startsWith("/api/")) {
       return new NextResponse(null, {
         status: 204,
         headers: {
@@ -25,7 +25,7 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next();
 
   // Ensure CORS and Cross-Origin-Resource-Policy for video assets
-  if (pathname.startsWith("/videos/")) {
+  if (pathname.startsWith("/videos/") || pathname.startsWith("/public/videos/")) {
     response.headers.set("Access-Control-Allow-Origin", "*");
     response.headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
     response.headers.set("Access-Control-Allow-Headers", "Range, Accept-Ranges, Content-Range, Content-Type, Origin, Accept");
@@ -38,5 +38,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/videos/:path*", "/images/:path*", "/api/:path*"],
+  matcher: ["/videos/:path*", "/public/videos/:path*", "/images/:path*", "/api/:path*"],
 };

@@ -144,6 +144,10 @@ function QrMenuContent() {
     } else if (searchParams.get("room")) {
       setOrderType("room");
     }
+    const tagParam = searchParams.get("tag");
+    if (tagParam) {
+      setSpecialInstructions((prev) => (prev ? prev : `[Identifier: ${tagParam}]`));
+    }
   }, [initialRoom, searchParams]);
 
   // Load saved favorites & session orders from localStorage
@@ -660,17 +664,24 @@ function QrMenuContent() {
         )}
 
         {/* ── 5. Main Feed Heading ── */}
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-lg text-white font-medium flex items-center gap-2">
-            {showOnlyFavorites
-              ? "Your Saved Favorites"
-              : activeCategoryId === "all"
-              ? "All Dishes & Refreshments"
-              : categories.find((c) => c.id === activeCategoryId)?.name || "Menu Items"}
-          </h2>
-          <span className="text-xs text-stone-500 font-mono">
-            {filteredItems.length} {filteredItems.length === 1 ? "item" : "items"}
-          </span>
+        <div className="mb-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-lg text-white font-medium flex items-center gap-2">
+              {showOnlyFavorites
+                ? "Your Saved Favorites"
+                : activeCategoryId === "all"
+                ? "All Dishes & Refreshments"
+                : categories.find((c) => c.id === activeCategoryId)?.name || "Menu Items"}
+            </h2>
+            <span className="text-xs text-stone-500 font-mono">
+              {filteredItems.length} {filteredItems.length === 1 ? "item" : "items"}
+            </span>
+          </div>
+          {activeCategoryId !== "all" && categories.find((c) => c.id === activeCategoryId)?.description && (
+            <p className="text-xs text-stone-400 mt-1 leading-relaxed">
+              {categories.find((c) => c.id === activeCategoryId)?.description}
+            </p>
+          )}
         </div>
 
         {/* Empty state */}

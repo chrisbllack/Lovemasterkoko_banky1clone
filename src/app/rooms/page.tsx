@@ -21,11 +21,19 @@ export default function RoomsPage() {
   return (
     <>
       <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 bg-[#1b1b1b] dark:bg-[#1a1a1d] overflow-hidden">
+        {/* Baseline Header Image — guaranteed first visual to show immediately */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/images/exterior-night.jpg"
+          alt="Rooms & Suites at Banky Hotel"
+          className="absolute inset-0 w-full h-full object-cover opacity-35 pointer-events-none select-none"
+        />
         <video
           autoPlay
           loop
           muted
           playsInline
+          poster="/images/exterior-night.jpg"
           preload="auto"
           className="absolute inset-0 w-full h-full object-cover opacity-35 pointer-events-none"
         >

@@ -28,7 +28,7 @@ export function LazyAspectImage({
   className = "",
   imgClassName = "",
   priority = false,
-  useNextImage = false,
+  useNextImage = true,
   children,
   sizes = "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw",
   onClick,
@@ -96,33 +96,20 @@ export function LazyAspectImage({
 
       {/* Render Image once near viewport (or immediate if priority), with native lazy & async decoding */}
       {(isInView || priority) && (
-        useNextImage ? (
-          <Image
-            src={src}
-            alt={alt}
-            fill
-            priority={priority}
-            loading={priority ? undefined : "lazy"}
-            decoding="async"
-            sizes={sizes}
-            referrerPolicy="no-referrer"
-            onLoad={handleLoad}
-            className={`relative z-10 object-cover ${imgClassName} transition-opacity duration-500 ${
-              isLoaded ? "opacity-100" : "opacity-0"
-            }`}
-          />
-        ) : (
-          <img
-            src={safeSrc}
-            alt={alt}
-            loading={priority ? "eager" : "lazy"}
-            decoding="async"
-            onLoad={handleLoad}
-            className={`relative z-10 w-full h-full object-cover ${imgClassName} transition-opacity duration-500 ${
-              isLoaded ? "opacity-100" : "opacity-0"
-            }`}
-          />
-        )
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          priority={priority}
+          loading={priority ? undefined : "lazy"}
+          decoding="async"
+          sizes={sizes}
+          referrerPolicy="no-referrer"
+          onLoad={handleLoad}
+          className={`relative z-10 object-cover ${imgClassName} transition-opacity duration-500 ${
+            isLoaded ? "opacity-100" : "opacity-0"
+          }`}
+        />
       )}
 
       {children}

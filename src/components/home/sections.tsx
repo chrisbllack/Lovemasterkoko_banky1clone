@@ -260,7 +260,7 @@ export const TestimonialsSection = memo(function TestimonialsSection() {
         <span className="eyebrow text-[var(--accent-light)] block mb-2">What Our Guests Say</span>        <h2 className="font-display font-normal text-3xl sm:text-4xl md:text-5xl mb-12 text-white">Testimonials</h2>
           <div className="grid gap-8 md:grid-cols-3 max-w-5xl mx-auto">
           {[
-            { name: "Chief Adeleke", text: "An outstanding luxury experience. The Signature Suite exceeded every expectation — the butler service and attention to detail were world-class.", rating: 5 },
+            { name: "Chief Adeleke", text: "An outstanding luxury experience. The Luxury Suite exceeded every expectation — the butler service and attention to detail were world-class.", rating: 5 },
             { name: "Mrs. Oluwaseun", text: "We held our wedding reception at Banky Hall and it was absolutely perfect. The coordination team made our day seamless and magical.", rating: 5 },
             { name: "Dr. Adebayo", text: "Best hotel in Ado-Ekiti by far. The executive rooms are immaculate, the Wi-Fi is genuinely fast, and the restaurant serves the best jollof rice in town.", rating: 5 },
           ].map((t) => (

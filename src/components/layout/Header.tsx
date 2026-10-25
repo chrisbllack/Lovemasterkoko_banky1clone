@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Menu, X, Calendar, Sun, Moon } from "lucide-react";
 import { PhoneSolidIcon } from "@/components/icons/PhoneSolidIcon";
@@ -101,9 +102,13 @@ export function Header() {
           {/* Center — Header logo using banky-desktop-logo in public/images/ exactly as it is */}
           <Link href="/" className="flex items-center group shrink-0" aria-label="Banky Hotel & Suites Home">
             <span className="shrink-0 flex items-center justify-center w-auto h-[54px] sm:h-[64px] lg:h-[72px] xl:h-[78px] bg-transparent border-none p-0 transition-all duration-[400ms] ease-in-out group-hover:scale-105">
-              <img
+              <Image
                 src="/images/banky-desktop-logo.png"
                 alt="Banky Hotel & Suites"
+                width={180}
+                height={78}
+                priority
+                referrerPolicy="no-referrer"
                 className="h-full w-auto max-w-[130px] sm:max-w-[155px] lg:max-w-[180px] object-contain bg-transparent select-none drop-shadow-sm"
               />
             </span>
@@ -154,9 +159,12 @@ export function Header() {
           <div className="container-x py-4 sm:py-6 flex items-center justify-between border-b border-white/10 shrink-0">
             <Link href="/" onClick={() => setOpen(false)} className="flex items-center group shrink-0" aria-label="Banky Hotel & Suites Home">
               <span className="shrink-0 flex items-center justify-center bg-transparent p-0 h-12 sm:h-14">
-                <img
+                <Image
                   src="/images/banky-desktop-logo.png"
                   alt="Banky Hotel & Suites"
+                  width={150}
+                  height={56}
+                  referrerPolicy="no-referrer"
                   className="h-full w-auto object-contain bg-transparent select-none drop-shadow-sm"
                 />
               </span>

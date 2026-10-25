@@ -43,8 +43,8 @@ import type {
 const db = () => serverDb();
 
 const DEFAULT_ROOM_TYPES: RoomType[] = [
-  { id: "signature-suite", slug: "signature-suite", name: "Signature Suite", qty: 1, baseRate: 20000000, maxOccupancy: 3, image: "/images/signature suite room.jpg", blurb: "Our premier signature residence: a sunlit master living parlor, private dressing area, and an opulent master suite framed by full-height windows.", features: ["Private living room", "Butler service", "Complimentary breakfast", "VIP airport transfer"], status: "active" },
-  { id: "presidential-suite", slug: "presidential-suite", name: "Presidential Suite", qty: 3, baseRate: 10000000, maxOccupancy: 3, image: "/images/Presidential.jpg", images: ["/images/Presidential.jpg", "/images/presidential 17.jpg", "/images/presidential23.jpg", "/images/presidential3.jpg"], blurb: "A stately presidential residence featuring an executive parlor, marble-finished bathroom, and expansive entertaining lounge.", features: ["Executive parlor", "VIP lounge access", "Complimentary breakfast", "Late checkout"], status: "active" },
+  { id: "luxury-suite", slug: "luxury-suite", name: "Luxury Suite", qty: 1, baseRate: 20000000, maxOccupancy: 3, image: "/images/signature suite room.jpg", blurb: "Our premier luxury residence: a sunlit master living parlor, private dressing area, and an opulent master suite framed by full-height windows.", features: ["Private living room", "Butler service", "Complimentary breakfast", "VIP airport transfer"], status: "active" },
+  { id: "luxury", slug: "luxury", name: "Luxury", qty: 3, baseRate: 10000000, maxOccupancy: 3, image: "/images/Presidential.jpg", images: ["/images/Presidential.jpg", "/images/presidential 17.jpg", "/images/presidential23.jpg", "/images/presidential3.jpg"], blurb: "A stately luxury residence featuring an executive parlor, marble-finished bathroom, and expansive entertaining lounge.", features: ["Executive parlor", "VIP lounge access", "Complimentary breakfast", "Late checkout"], status: "active" },
   { id: "super-executive", slug: "super-executive", name: "Super Executive", qty: 1, baseRate: 6000000, maxOccupancy: 2, image: "/images/superexecutive.jpg", images: ["/images/superexecutive.jpg", "/images/super executive1.jpg", "/images/super executive 2.jpg"], blurb: "An expansive, peaceful haven featuring a private reading corner, plush appointments, and soft natural daylight.", features: ["Reading corner", "Smart TV", "Daily housekeeping", "Courtyard view"], status: "active" },
   { id: "executive", slug: "executive", name: "Executive", qty: 8, baseRate: 5000000, maxOccupancy: 2, image: "/images/EXECUTIVE Main.jpeg", images: ["/images/EXECUTIVE Main.jpeg", "/images/EXECUTIVE MAIN2.jpeg"], blurb: "Rich warm timber, crisp Egyptian cotton linen, and an ergonomic workstation for productive executive stays.", features: ["Work desk", "Rain shower", "Complimentary Wi-Fi", "Daily housekeeping"], status: "active" },
   { id: "standard-plus", slug: "standard-plus", name: "Standard Plus", qty: 4, baseRate: 4500000, maxOccupancy: 3, image: "/images/Standard PLUS.jpeg", images: ["/images/Standard PLUS.jpeg", "/images/STANDARD PLUS MAIN .jpeg"], blurb: "An elevated retreat offering an extended lounge seating area, workspace, and serene courtyard views.", features: ["Seating area", "Smart TV", "Air conditioning", "Complimentary Wi-Fi"], status: "active" },
@@ -119,7 +119,14 @@ export async function getRoomTypeBySlug(slug: string): Promise<RoomType | null> 
   } catch (err) {
     console.warn(`Failed to fetch room type slug ${slug} from Firestore:`, err);
   }
-  return DEFAULT_ROOM_TYPES.find((r) => r.slug === slug) ?? null;
+  return (
+    DEFAULT_ROOM_TYPES.find(
+      (r) =>
+        r.slug === slug ||
+        (slug === "signature-suite" && r.slug === "luxury-suite") ||
+        (slug === "presidential-suite" && r.slug === "luxury")
+    ) ?? null
+  );
 }
 
 export async function getRoomTypeById(id: string): Promise<RoomType | null> {
@@ -131,7 +138,15 @@ export async function getRoomTypeById(id: string): Promise<RoomType | null> {
   } catch (err) {
     console.warn(`Failed to fetch room type id ${id} from Firestore:`, err);
   }
-  return DEFAULT_ROOM_TYPES.find((r) => r.id === id || r.slug === id) ?? null;
+  return (
+    DEFAULT_ROOM_TYPES.find(
+      (r) =>
+        r.id === id ||
+        r.slug === id ||
+        (id === "signature-suite" && (r.id === "luxury-suite" || r.slug === "luxury-suite")) ||
+        (id === "presidential-suite" && (r.id === "luxury" || r.slug === "luxury"))
+    ) ?? null
+  );
 }
 
 export async function getRatePlans(): Promise<RatePlan[]> {

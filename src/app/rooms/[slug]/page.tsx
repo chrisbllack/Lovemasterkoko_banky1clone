@@ -1,13 +1,17 @@
 "use client";
 import { use, useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ROOMS, HOTEL, naira, whatsappLink, bookingMessage } from "@/lib/hotel";
-import { ArrowRight, Check, Play, Pause, Volume2, VolumeX, Upload, Sparkles, Maximize2, ZoomIn, Film } from "lucide-react";
+import { ArrowRight, Check, Play, Pause, Volume2, VolumeX, Upload, Sparkles, Maximize2, ZoomIn, Film, Loader2, ShieldCheck, Save } from "lucide-react";
 import { PhoneSolidIcon } from "@/components/icons/PhoneSolidIcon";
 import { RoomSchema } from "@/components/seo/StructuredData";
 import { RoomImageSlider } from "@/components/common/RoomImageSlider";
 import { RoomPhotoLightbox } from "@/components/common/RoomPhotoLightbox";
 import { VideoStitcherModal } from "@/components/admin/VideoStitcherModal";
+import { RoomVideoUploadModal } from "@/components/admin/RoomVideoUploadModal";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   RoomImagePreloadLinks,
   preloadImages,
@@ -17,7 +21,14 @@ import {
 
 export default function RoomDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
-  const room = ROOMS.find((r) => r.slug === slug) || ROOMS[0]!;
+  const room =
+    ROOMS.find(
+      (r) =>
+        r.slug === slug ||
+        (slug === "signature-suite" && r.slug === "luxury-suite") ||
+        (slug === "presidential-suite" && r.slug === "luxury")
+    ) ||
+    ROOMS[0]!;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,7 +43,37 @@ export default function RoomDetail({ params }: { params: Promise<{ slug: string 
   const [lightboxOpen, setLightboxOpen] = useState<boolean>(false);
   const [lightboxIndex, setLightboxIndex] = useState<number>(0);
   const [stitcherOpen, setStitcherOpen] = useState<boolean>(false);
+  const [videoModalOpen, setVideoModalOpen] = useState<boolean>(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
+
+  // Determine if user has admin privileges or admin mode enabled via backend query/auth
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("admin") === "1" || params.get("admin") === "true") {
+        setIsAdmin(true);
+      }
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const email = (user.email ?? "").toLowerCase();
+        const allowlist = [
+          "bankyhotelado@gmail.com",
+          "chrisbllack@gmail.com",
+          "admin@bankyhotelandsuites.com",
+          "chrisbllackaidev@gmail.com",
+          "infinityplussolutionsss@gmail.com",
+        ];
+        if (allowlist.includes(email)) {
+          setIsAdmin(true);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const openLightbox = (index: number = 0) => {
     setLightboxIndex(index);
@@ -253,22 +294,26 @@ export default function RoomDetail({ params }: { params: Promise<{ slug: string 
     <>
       <RoomImagePreloadLinks images={roomImages} />
       <RoomSchema slug={slug} />
-      <section className="relative min-h-[440px] sm:min-h-[500px] md:min-h-[560px] pt-32 pb-20 sm:pt-40 sm:pb-28 bg-[#111111] overflow-hidden flex flex-col justify-end">
-        {/* Baseline Room Photo Backdrop - ALWAYS rendered behind video so header is never black */}
+      <section
+        id="video-header-container"
+        data-video-header="true"
+        className="video-header-container relative min-h-[380px] xs:min-h-[440px] sm:min-h-[500px] md:min-h-[560px] lg:min-h-[620px] pt-28 pb-16 sm:pt-36 sm:pb-24 bg-[#111111] overflow-hidden flex flex-col justify-end"
+      >
+        {/* Baseline Room Photo Backdrop — guaranteed first visual to show immediately */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={room.image}
+          src={roomImages[0] || room.image}
           alt={room.name}
-          className="absolute inset-0 w-full h-full object-cover object-center select-none"
+          className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
         />
 
-        {/* Background Video Header rendered in Landscape mode */}
+        {/* Background Video Header rendered in Landscape mode - video only */}
         <video
           ref={videoRef}
           key={activeVideoSrc}
           id={`${room.slug}-room-header-video`}
           src={activeVideoSrc}
-          poster={room.image}
+          poster={roomImages[0] || room.image}
           autoPlay
           loop
           muted={isMuted}
@@ -276,17 +321,54 @@ export default function RoomDetail({ params }: { params: Promise<{ slug: string 
           crossOrigin="anonymous"
           preload="auto"
           onError={handleVideoError}
-          onLoadedData={() => {
+          onLoadStart={() => {
+            setVideoLoaded(false);
+          }}
+          onWaiting={() => {
+            setVideoLoaded(false);
+          }}
+          onPlaying={() => {
+            setVideoLoaded(true);
+            setIsPlaying(true);
+            applySpeed(playbackSpeed);
+          }}
+          onLoadedMetadata={() => {
             setVideoLoaded(true);
             applySpeed(playbackSpeed);
             if (videoRef.current) {
-              videoRef.current.play().catch(() => {});
+              const p = videoRef.current.play();
+              if (p !== undefined) {
+                p.then(() => setIsPlaying(true)).catch((err) => {
+                  console.warn("Autoplay deferred, retry muted:", err);
+                  if (videoRef.current) {
+                    videoRef.current.muted = true;
+                    setIsMuted(true);
+                    const retry = videoRef.current.play();
+                    if (retry !== undefined) {
+                      retry.then(() => setIsPlaying(true)).catch(() => {});
+                    }
+                  }
+                });
+              }
+            }
+          }}
+          onLoadedData={() => {
+            setVideoLoaded(true);
+            applySpeed(playbackSpeed);
+            if (videoRef.current && videoRef.current.paused) {
+              const p = videoRef.current.play();
+              if (p !== undefined) {
+                p.then(() => setIsPlaying(true)).catch(() => {});
+              }
             }
           }}
           onCanPlay={() => {
             setVideoLoaded(true);
-            if (videoRef.current) {
-              videoRef.current.play().catch(() => {});
+            if (videoRef.current && videoRef.current.paused) {
+              const p = videoRef.current.play();
+              if (p !== undefined) {
+                p.then(() => setIsPlaying(true)).catch(() => {});
+              }
             }
           }}
           onPlay={() => {
@@ -298,10 +380,10 @@ export default function RoomDetail({ params }: { params: Promise<{ slug: string 
             setIsPlaying(false);
           }}
           onTimeUpdate={() => {
-            setVideoLoaded(true);
+            if (!videoLoaded) setVideoLoaded(true);
           }}
           className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-700 ${
-            videoLoaded ? "opacity-85" : "opacity-60"
+            videoLoaded ? "opacity-85" : "opacity-0"
           }`}
         >
           <source src={activeVideoSrc} type="video/mp4" />
@@ -309,112 +391,152 @@ export default function RoomDetail({ params }: { params: Promise<{ slug: string 
             src={activeVideoSrc.includes("-room.mp4") ? activeVideoSrc.replace("-room.mp4", ".mp4") : activeVideoSrc}
             type="video/mp4"
           />
+          <source src={`/public/videos/${room.slug}-room.mp4`} type="video/mp4" />
         </video>
 
         {/* Cinematic dark film vignette & gradients to protect text legibility */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#111111] via-[#111111]/40 to-[#111111]/60 pointer-events-none" />
         <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-[#111111]/70 pointer-events-none" />
 
-        {/* Upload success notification */}
-        {uploadSuccessMessage && (
-          <div className="absolute top-36 sm:top-40 right-4 sm:right-8 z-30 bg-emerald-900/90 text-emerald-100 text-xs px-3.5 py-2 rounded-lg border border-emerald-500/40 backdrop-blur-md shadow-lg animate-fadeIn">
-            ✓ {uploadSuccessMessage}
-          </div>
+        {/* Video Header Controls: absolutely positioned within video header container */}
+        {hasVideo && (
+          <>
+            <button
+              id="video-playback-toggle"
+              type="button"
+              onClick={togglePlay}
+              aria-label={!videoLoaded ? "Video header loading..." : isPlaying ? "Pause Video" : "Play Video"}
+              title={!videoLoaded ? "Loading video stream..." : isPlaying ? "Pause video header" : "Play video header"}
+              className="absolute bottom-4 right-4 z-30 rounded-full bg-black/65 hover:bg-black/85 active:scale-95 backdrop-blur-md border border-white/25 text-white hover:text-[var(--accent-light)] transition-all shadow-md cursor-pointer disabled:cursor-wait"
+            >
+              {!videoLoaded ? (
+                <Loader2 className="animate-spin text-amber-300" />
+              ) : isPlaying ? (
+                <Pause className="text-white" />
+              ) : (
+                <Play className="fill-white text-white" />
+              )}
+            </button>
+
+            <button
+              id="video-audio-toggle"
+              type="button"
+              onClick={toggleMute}
+              aria-label={isMuted ? "Unmute Video" : "Mute Video"}
+              title={isMuted ? "Unmute audio" : "Mute audio"}
+              className="absolute bottom-4 right-16 sm:right-[4.25rem] z-30 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white hover:text-[var(--accent-light)] transition-colors shadow-md cursor-pointer"
+            >
+              {isMuted ? <VolumeX /> : <Volume2 />}
+            </button>
+          </>
         )}
 
-        {/* Video controls & Live status badge */}
-        <div className="flex flex-wrap absolute top-24 sm:top-28 right-4 sm:right-8 z-20 items-center gap-2">
-          <span
-            id="video-live-badge"
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-[11px] sm:text-xs font-condensed tracking-wider uppercase text-amber-300 font-medium shadow-sm"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Full Video Header ({playbackSpeed}x Slow Speed)</span>
-          </span>
+        {/* Admin Header Controls & Tools — hidden from public guests, enabled only by admin at the backend */}
+        {isAdmin && (
+          <>
+            {/* Upload success notification */}
+            {uploadSuccessMessage && (
+              <div className="absolute top-28 sm:top-36 right-3 sm:right-8 z-30 bg-emerald-900/90 text-emerald-100 text-xs px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg border border-emerald-500/40 backdrop-blur-md shadow-lg animate-fadeIn">
+                ✓ {uploadSuccessMessage}
+              </div>
+            )}
 
-          <button
-            id="video-speed-toggle"
-            type="button"
-            onClick={cycleSpeed}
-            aria-label={`Change playback speed, currently ${playbackSpeed}x`}
-            className="inline-flex items-center px-2.5 py-1.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white hover:text-[var(--accent-light)] text-[11px] sm:text-xs font-condensed tracking-wider uppercase font-semibold transition-colors shadow-sm cursor-pointer"
-            title="Toggle playback speed"
-          >
-            {playbackSpeed}x
-          </button>
+            {/* Video controls & Live status toolbar - visible only when admin mode is active */}
+            <div className="absolute top-20 sm:top-24 md:top-28 right-3 sm:right-6 md:right-8 z-20 flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 max-w-[calc(100%-1.5rem)] sm:max-w-none">
+              <span
+                id="video-admin-badge"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-amber-500/20 backdrop-blur-md border border-amber-400/40 text-[10px] sm:text-xs font-condensed tracking-wider uppercase text-amber-300 font-semibold shadow-sm"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span>Admin Controls</span>
+              </span>
 
-          <button
-            id="video-playback-toggle"
-            type="button"
-            onClick={togglePlay}
-            aria-label={isPlaying ? "Pause Video" : "Play Video"}
-            className="inline-flex items-center justify-center p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white hover:text-[var(--accent-light)] transition-colors shadow-sm cursor-pointer"
-            title={isPlaying ? "Pause video" : "Play video"}
-          >
-            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-white" />}
-          </button>
+              <span
+                id="video-live-badge"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-[10px] sm:text-xs font-condensed tracking-wider uppercase text-amber-300 font-medium shadow-sm"
+              >
+                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <span className="hidden sm:inline">Video Header ({playbackSpeed}x)</span>
+                <span className="sm:hidden inline">Tour ({playbackSpeed}x)</span>
+              </span>
 
-          <button
-            id="video-audio-toggle"
-            type="button"
-            onClick={toggleMute}
-            aria-label={isMuted ? "Unmute Video" : "Mute Video"}
-            className="inline-flex items-center justify-center p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white hover:text-[var(--accent-light)] transition-colors shadow-sm cursor-pointer"
-            title={isMuted ? "Unmute audio" : "Mute audio"}
-          >
-            {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-          </button>
+              <button
+                id="video-speed-toggle"
+                type="button"
+                onClick={cycleSpeed}
+                aria-label={`Change playback speed, currently ${playbackSpeed}x`}
+                className="inline-flex items-center px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white hover:text-[var(--accent-light)] text-[10px] sm:text-xs font-condensed tracking-wider uppercase font-semibold transition-colors shadow-sm cursor-pointer shrink-0"
+                title="Toggle playback speed"
+              >
+                {playbackSpeed}x
+              </button>
 
-          <button
-            id="room-header-lightbox-trigger"
-            type="button"
-            onClick={() => openLightbox(0)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-[11px] sm:text-xs font-condensed tracking-wider uppercase text-white hover:text-amber-200 transition-all shadow-sm cursor-pointer"
-            title="Click to view full-resolution photo gallery"
-          >
-            <ZoomIn className="h-3.5 w-3.5 text-amber-300" />
-            <span>View Photos ({roomImages.length})</span>
-          </button>
+              <button
+                id="room-header-lightbox-trigger"
+                type="button"
+                onClick={() => openLightbox(0)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-[10px] sm:text-xs font-condensed tracking-wider uppercase text-white hover:text-amber-200 transition-all shadow-sm cursor-pointer shrink-0"
+                title="Click to view full-resolution photo gallery"
+              >
+                <ZoomIn className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-300" />
+                <span className="hidden xs:inline">Photos ({roomImages.length})</span>
+                <span className="xs:hidden">{roomImages.length}</span>
+              </button>
 
-          <button
-            id="video-stitch-trigger"
-            type="button"
-            onClick={() => setStitcherOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500 hover:bg-amber-600 backdrop-blur-md border border-amber-400/40 text-[11px] sm:text-xs font-condensed tracking-wider uppercase text-black font-bold transition-all shadow-sm cursor-pointer"
-            title="Upload multiple clips and stitch together into this room header"
-          >
-            <Film className="h-3.5 w-3.5" />
-            <span>Stitch Video</span>
-          </button>
+              <button
+                id="video-stitch-trigger"
+                type="button"
+                onClick={() => setStitcherOpen(true)}
+                className="flex items-center gap-1 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-amber-500 hover:bg-amber-600 backdrop-blur-md border border-amber-400/40 text-[10px] sm:text-xs font-condensed tracking-wider uppercase text-black font-bold transition-all shadow-sm cursor-pointer shrink-0"
+                title="Upload multiple clips and stitch together into this room header"
+              >
+                <Film className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                <span className="hidden xs:inline">Stitch Video</span>
+                <span className="xs:hidden">Stitch</span>
+              </button>
 
-          <button
-            id="video-upload-trigger"
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="hidden items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-[11px] sm:text-xs font-condensed tracking-wider uppercase text-white transition-colors shadow-sm cursor-pointer disabled:opacity-50"
-            title="Upload new video file for this room"
-          >
-            <Upload className="h-3.5 w-3.5" />
-            <span>{uploading ? "Uploading..." : "Replace"}</span>
-          </button>
+              <button
+                id="video-save-modal-trigger"
+                type="button"
+                onClick={() => setVideoModalOpen(true)}
+                className="flex items-center gap-1 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-amber-500 hover:bg-amber-600 backdrop-blur-md border border-amber-400/40 text-[10px] sm:text-xs font-condensed tracking-wider uppercase text-black font-bold transition-all shadow-sm cursor-pointer shrink-0"
+                title="Select, preview, and save the active video header for this room"
+              >
+                <Save className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                <span className="hidden xs:inline">Upload &amp; Save Video</span>
+                <span className="xs:hidden">Save Video</span>
+              </button>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="video/mp4,video/webm,video/quicktime,video/*"
-            className="hidden"
-            onChange={handleVideoUpload}
-          />
-          <input
-            ref={photoInputRef}
-            type="file"
-            multiple
-            accept="image/jpeg,image/png,image/webp,image/*"
-            className="hidden"
-            onChange={handlePhotoUpload}
-          />
-        </div>
+              <button
+                id="video-upload-trigger"
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="inline-flex items-center gap-1 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-[10px] sm:text-xs font-condensed tracking-wider uppercase text-white transition-colors shadow-sm cursor-pointer disabled:opacity-50 shrink-0"
+                title="Quick replace video file for this room"
+              >
+                <Upload className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                <span>{uploading ? "Uploading..." : "Quick Replace"}</span>
+              </button>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime,video/*"
+                className="hidden"
+                onChange={handleVideoUpload}
+              />
+              <input
+                ref={photoInputRef}
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp,image/*"
+                className="hidden"
+                onChange={handlePhotoUpload}
+              />
+            </div>
+          </>
+        )}
 
         <div className="container-x relative z-10">
           <div className="flex items-center gap-2 mb-3">
@@ -472,10 +594,7 @@ export default function RoomDetail({ params }: { params: Promise<{ slug: string 
                         onClick={() => openLightbox(idx)}
                         className="group relative overflow-hidden rounded-xl border border-[#ece6dd] dark:border-[#3a3a42] bg-stone-100 dark:bg-stone-800 transition-all hover:border-[var(--accent)] text-left cursor-pointer shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                       >
-                        <div
-                          className="aspect-[16/10] relative overflow-hidden bg-stone-200 dark:bg-stone-800"
-                          {...({ loading: "lazy" } as any)}
-                        >
+                        <div className="aspect-[16/10] relative overflow-hidden bg-stone-200 dark:bg-stone-800">
                           {/* Blurred placeholder background using CSS filter: blur(20px) while full image loads */}
                           <div
                             className="img-blur-bg absolute inset-0 bg-cover bg-center pointer-events-none transition-opacity duration-700"
@@ -488,12 +607,13 @@ export default function RoomDetail({ params }: { params: Promise<{ slug: string 
                             data-placeholder="blur"
                             aria-hidden="true"
                           />
-                          <img
-                            src={encodeURI(img)}
+                          <Image
+                            src={img}
                             alt={`${room.name} Photo ${idx + 1}`}
-                            loading="lazy"
-                            decoding="async"
-                            className="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            fill
+                            sizes="(max-width: 640px) 50vw, 33vw"
+                            referrerPolicy="no-referrer"
+                            className="relative z-10 object-cover group-hover:scale-105 transition-transform duration-500"
                             onLoad={(e) => {
                               const sibling = e.currentTarget.previousElementSibling as HTMLElement | null;
                               if (sibling) {
@@ -647,18 +767,35 @@ export default function RoomDetail({ params }: { params: Promise<{ slug: string 
         onUploadClick={() => photoInputRef.current?.click()}
       />
 
-      {/* Room Video Header Stitcher Studio Modal */}
-      <VideoStitcherModal
-        isOpen={stitcherOpen}
-        onClose={() => setStitcherOpen(false)}
-        defaultSlug={slug}
-        onStitchComplete={({ url }) => {
-          setCustomVideoSrc(`${url}?t=${Date.now()}`);
-          setVideoLoaded(false);
-          setUploadSuccessMessage("Video header successfully stitched and deployed!");
-          setTimeout(() => setUploadSuccessMessage(null), 5000);
-        }}
-      />
+      {/* Room Video Header Stitcher Studio Modal (admin only) */}
+      {isAdmin && (
+        <VideoStitcherModal
+          isOpen={stitcherOpen}
+          onClose={() => setStitcherOpen(false)}
+          defaultSlug={slug}
+          onStitchComplete={({ url }) => {
+            setCustomVideoSrc(`${url}?t=${Date.now()}`);
+            setVideoLoaded(false);
+            setUploadSuccessMessage("Video header successfully stitched and deployed!");
+            setTimeout(() => setUploadSuccessMessage(null), 5000);
+          }}
+        />
+      )}
+
+      {/* Room Video Header Upload & Save Modal (admin only) */}
+      {isAdmin && (
+        <RoomVideoUploadModal
+          isOpen={videoModalOpen}
+          onClose={() => setVideoModalOpen(false)}
+          defaultSlug={room.slug}
+          onSaveComplete={({ url }) => {
+            setCustomVideoSrc(`${url}?t=${Date.now()}`);
+            setVideoLoaded(false);
+            setUploadSuccessMessage("Successfully saved and activated main video header!");
+            setTimeout(() => setUploadSuccessMessage(null), 6000);
+          }}
+        />
+      )}
     </>
   );
 }

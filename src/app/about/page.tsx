@@ -199,7 +199,7 @@ export default function AboutPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <LazyAspectImage
                   src="/images/signature suite room.jpg"
-                  alt="Signature Suite"
+                  alt="Luxury Suite"
                   aspectClass="aspect-[16/10]"
                   className="rounded-xl border border-[#ece6dd] dark:border-[#2e2b26] shadow-md"
                   imgClassName="hover:scale-105 transition-transform duration-700"
